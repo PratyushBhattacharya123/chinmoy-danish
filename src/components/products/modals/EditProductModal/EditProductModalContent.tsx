@@ -29,7 +29,6 @@ const EditProductModalContent = ({
   const [categoryValue, setCategoryValue] = useState<string>("");
   const [unitValue, setUnitValue] = useState<string>("");
 
-  const gstSlab = watch("gstSlab");
   const categoryId = watch("categoryId");
   const unit = watch("unit");
 
