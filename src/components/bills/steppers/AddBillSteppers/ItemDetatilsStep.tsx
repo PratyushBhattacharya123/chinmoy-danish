@@ -175,6 +175,13 @@ const ItemDetatilsStep = ({
 
   // Handle discount input changes
   const handleDiscountPercentageChange = (index: number, value: number) => {
+    const item = items?.[index];
+    if (!item) return;
+    const baseAmount = item.price || 0;
+    if (baseAmount === 0) {
+      toast.error("Please set price first");
+      return;
+    }
     if (value > 100) {
       toast.error("Discount percentage cannot exceed 100%");
       return;
@@ -186,14 +193,14 @@ const ItemDetatilsStep = ({
     const item = items?.[index];
     if (!item) return;
 
-    const baseAmount = (item.quantity || 0) * (item.price || 0);
+    const baseAmount = item.price || 0;
     if (baseAmount === 0) {
-      toast.error("Please set quantity and price first");
+      toast.error("Please set price first");
       return;
     }
 
     if (amount > baseAmount) {
-      toast.error("Discount amount cannot exceed item total");
+      toast.error("Discount amount cannot exceed item price");
       return;
     }
 
@@ -206,7 +213,7 @@ const ItemDetatilsStep = ({
     const item = items?.[index];
     if (!item) return 0;
 
-    const baseAmount = (item.quantity || 0) * (item.price || 0);
+    const baseAmount = item.price || 0;
     return (baseAmount * (item.discountPercentage || 0)) / 100;
   };
 
@@ -546,10 +553,7 @@ const ItemDetatilsStep = ({
                                 Number(val) || 0
                               )
                             }
-                            max={
-                              (items?.[index]?.quantity || 0) *
-                              (items?.[index]?.price || 0)
-                            }
+                            max={items?.[index]?.price || 0}
                             hideControls
                             classNames={{
                               input:
@@ -570,10 +574,9 @@ const ItemDetatilsStep = ({
                             </span>
                             <span>
                               Base : ₹
-                              {(
-                                (items?.[index]?.quantity || 0) *
-                                (items?.[index]?.price || 0)
-                              ).toLocaleString("en-IN")}
+                              {(items?.[index]?.price || 0).toLocaleString(
+                                "en-IN"
+                              )}
                             </span>
                           </div>
                         )}

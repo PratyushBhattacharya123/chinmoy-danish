@@ -56,6 +56,8 @@ const DownloadBill = () => {
     }
   }, [billData, isSuccess]);
 
+  console.log({ billData, data });
+
   useEffect(() => {
     setIsComponentLoaded(true);
   }, []);

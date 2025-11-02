@@ -39,10 +39,14 @@ export const stateOptions = Object.entries(gstStateMapping).map((val) => ({
 }));
 
 export const calculateTotalAmount = (items: Item[], addOns?: AddOn[]) => {
-  const itemsTotal = items.reduce(
-    (total, item) => total + item.quantity * item.price,
-    0
-  );
+  const itemsTotal = items.reduce((total, item) => {
+    const baseAmount = item.quantity * item.price;
+    const discountAmount = item.discountPercentage
+      ? (baseAmount * item.discountPercentage) / 100
+      : 0;
+    const itemTotal = baseAmount - discountAmount;
+    return total + Math.max(0, itemTotal);
+  }, 0);
 
   const addOnsTotal =
     addOns?.reduce((total, addOn) => total + addOn.price, 0) || 0;

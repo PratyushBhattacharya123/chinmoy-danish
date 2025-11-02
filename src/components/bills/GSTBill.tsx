@@ -269,7 +269,7 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                 style={{
                   border: "1px solid rgb(209, 213, 219)",
                   padding: "4px",
-                  minWidth: "120px",
+                  minWidth: "100px",
                   textAlign: "center",
                 }}
               >
@@ -282,7 +282,7 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                   width: "64px",
                 }}
               >
-                HSN/SAC
+                HSN/ SAC
               </th>
               <th
                 style={{
@@ -357,7 +357,7 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                       width: "64px",
                     }}
                   >
-                    IGST Amount (₹)
+                    IGST Amt (₹)
                   </th>
                 </>
               ) : (
@@ -378,7 +378,7 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                       width: "64px",
                     }}
                   >
-                    CGST Amount (₹)
+                    CGST Amt (₹)
                   </th>
                   <th
                     style={{
@@ -913,9 +913,11 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                   <p style={{ wordWrap: "break-word" }}>
                     <strong>Address :</strong> {partyDetails?.address}
                   </p>
-                  <p>
-                    <strong>GSTIN :</strong> {partyDetails?.gstNumber || ""}
-                  </p>
+                  {partyDetails?.gstNumber && (
+                    <p>
+                      <strong>GSTIN :</strong> {partyDetails?.gstNumber}
+                    </p>
+                  )}
                   <div className="flex gap-4">
                     <p>
                       <strong>State :</strong> {partyDetails?.state}
@@ -1053,47 +1055,6 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                               padding: "4px",
                             }}
                           >
-                            Total Amount Before Tax :
-                          </td>
-                          <td
-                            style={{
-                              border: "1px solid rgb(209, 213, 219)",
-                              padding: "4px",
-                              textAlign: "right",
-                            }}
-                          >
-                            ₹{formatCurrency(taxableAmount + totalDiscount)}
-                          </td>
-                        </tr>
-                        {totalDiscount > 0 && (
-                          <tr>
-                            <td
-                              style={{
-                                border: "1px solid rgb(209, 213, 219)",
-                                padding: "4px",
-                              }}
-                            >
-                              Less Discount :
-                            </td>
-                            <td
-                              style={{
-                                border: "1px solid rgb(209, 213, 219)",
-                                padding: "4px",
-                                textAlign: "right",
-                                color: "rgb(220, 38, 38)",
-                              }}
-                            >
-                              -₹{formatCurrency(totalDiscount)}
-                            </td>
-                          </tr>
-                        )}
-                        <tr>
-                          <td
-                            style={{
-                              border: "1px solid rgb(209, 213, 219)",
-                              padding: "4px",
-                            }}
-                          >
                             Taxable Amount :
                           </td>
                           <td
@@ -1212,6 +1173,28 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                             </td>
                           </tr>
                         )}
+                        {/* {totalDiscount > 0 && (
+                          <tr>
+                            <td
+                              style={{
+                                border: "1px solid rgb(209, 213, 219)",
+                                padding: "4px",
+                              }}
+                            >
+                              Amount Saved :
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid rgb(209, 213, 219)",
+                                padding: "4px",
+                                textAlign: "right",
+                              }}
+                              className="text-green-700"
+                            >
+                              ₹{formatCurrency(totalDiscount)}
+                            </td>
+                          </tr>
+                        )} */}
                         <tr style={{ backgroundColor: "rgb(249, 250, 251)" }}>
                           <td
                             style={{

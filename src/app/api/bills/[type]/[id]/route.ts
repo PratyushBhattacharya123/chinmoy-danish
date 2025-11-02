@@ -151,6 +151,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
           items: {
             quantity: 1,
             price: 1,
+            discountPercentage: 1,
             productDetails: {
               _id: 1,
               name: 1,
