@@ -164,7 +164,7 @@ const ItemsModalContent = ({
                         </span>
                       </div>
                       <div className="col-span-4 flex items-center justify-center text-gray-800 font-medium text-xs">
-                        ₹{Math.round(total).toLocaleString("en-IN")}
+                        ₹{total.toLocaleString("en-IN")}
                       </div>
                     </div>
                   </div>
@@ -259,7 +259,7 @@ const ItemsModalContent = ({
                   </span>
                 </div>
                 <div className="text-xl md:text-2xl font-bold text-gray-800 bg-white px-3 md:px-4 py-1.5 md:py-2 rounded-full shadow-sm border border-gray-300">
-                  ₹{Math.round(totalAmount).toLocaleString("en-IN")}
+                  ₹{totalAmount.toLocaleString("en-IN")}
                 </div>
               </div>
             </div>

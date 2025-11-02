@@ -43,7 +43,7 @@ const ItemsModal = ({ items, addOns, totalAmount, itemsCount }: Props) => {
           padding: "0",
         },
       },
-      size: isMobile ? "xs" : "lg",
+      size: isMobile ? "xs" : "xl",
       zIndex: 100,
     });
   };
