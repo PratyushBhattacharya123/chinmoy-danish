@@ -1,4 +1,4 @@
-import { AddOn, Item } from "@/@types";
+import { AddOn } from "@/@types";
 import { gstStateMapping } from "./constants";
 
 export function convertToDateFormat(dateString: string) {
@@ -38,8 +38,15 @@ export const stateOptions = Object.entries(gstStateMapping).map((val) => ({
   label: val[1],
 }));
 
-export const calculateTotalAmount = (items: Item[], addOns?: AddOn[]) => {
-  const itemsTotal = items.reduce((total, item) => {
+export const calculateTotalAmount = (
+  itemsWithPrices: {
+    quantity: number;
+    price: number;
+    discountPercentage: number | undefined;
+  }[],
+  addOns?: AddOn[]
+) => {
+  const itemsTotal = itemsWithPrices.reduce((total, item) => {
     const baseAmount = item.quantity * item.price;
     const discountAmount = item.discountPercentage
       ? (baseAmount * item.discountPercentage) / 100

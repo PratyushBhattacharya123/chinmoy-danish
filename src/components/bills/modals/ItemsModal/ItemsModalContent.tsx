@@ -17,7 +17,7 @@ const ItemsModalContent = ({
 
   // Helpers
   const calculateItemTotal = (item: EnrichedItem) => {
-    const base = (item.quantity || 0) * (item.price || 0);
+    const base = (item.quantity || 0) * (item.productDetails?.price || 0);
     const discount = item.discountPercentage
       ? (base * (item.discountPercentage || 0)) / 100
       : 0;
@@ -25,12 +25,15 @@ const ItemsModalContent = ({
   };
 
   const getDiscountAmount = (item: EnrichedItem) => {
-    const base = (item.quantity || 0) * (item.price || 0);
+    const base = (item.quantity || 0) * (item.productDetails?.price || 0);
     return (base * (item.discountPercentage || 0)) / 100;
   };
 
   // Totals
-  const itemsSubtotal = items.reduce((sum, i) => sum + i.quantity * i.price, 0);
+  const itemsSubtotal = items.reduce(
+    (sum, i) => sum + i.quantity * (i.productDetails?.price || 0),
+    0
+  );
   const totalDiscount = items.reduce((sum, i) => sum + getDiscountAmount(i), 0);
   const itemsTotal = items.reduce((sum, i) => sum + calculateItemTotal(i), 0);
   const addOnsTotal = addOns.reduce((sum, a) => sum + (a.price || 0), 0);
@@ -107,8 +110,8 @@ const ItemsModalContent = ({
                           {item.productDetails?.name || "Unknown Product"}
                         </div>
                         <div className="text-xs text-gray-500 mt-0.5">
-                          ₹{item.price.toLocaleString("en-IN")} ×{" "}
-                          {item.quantity}
+                          ₹{item.productDetails?.price.toLocaleString("en-IN")}{" "}
+                          × {item.quantity}
                         </div>
                       </div>
                       <div className="col-span-1 flex items-center justify-center">
@@ -117,7 +120,7 @@ const ItemsModalContent = ({
                         </span>
                       </div>
                       <div className="col-span-2 flex items-center justify-center text-gray-600 text-sm">
-                        ₹{item.price.toLocaleString("en-IN")}
+                        ₹{item.productDetails?.price.toLocaleString("en-IN")}
                       </div>
                       <div className="col-span-2 flex items-center justify-center">
                         {item.discountPercentage ? (
@@ -145,8 +148,8 @@ const ItemsModalContent = ({
                           {item.productDetails?.name || "Unknown Product"}
                         </div>
                         <div className="text-xs text-gray-500 mt-0.5">
-                          ₹{item.price.toLocaleString("en-IN")} ×{" "}
-                          {item.quantity}
+                          ₹{item.productDetails?.price.toLocaleString("en-IN")}{" "}
+                          × {item.quantity}
                         </div>
                         {item.discountPercentage && (
                           <div className="mt-1 flex items-center gap-1">

@@ -30,6 +30,7 @@ import toast from "react-hot-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCategoriesData, useProductsData } from "@/hooks/use-queries";
 import CustomLoader from "@/components/common/CustomLoader";
+import { ProductPriceMap } from "./StepperMain";
 
 type Props = {
   setValue: UseFormSetValue<AddBill>;
@@ -38,6 +39,8 @@ type Props = {
   errors: FieldErrors<AddBill>;
   setActiveStep: React.Dispatch<React.SetStateAction<number>>;
   containerRef: React.RefObject<HTMLDivElement | null>;
+  setProductPrices: React.Dispatch<React.SetStateAction<ProductPriceMap>>;
+  getItemPrice: (index: number) => number;
 };
 
 type DiscountType = "percentage" | "amount";
@@ -49,10 +52,13 @@ const ItemDetatilsStep = ({
   errors,
   setActiveStep,
   containerRef,
+  setProductPrices,
+  getItemPrice,
 }: Props) => {
   const [products, setProducts] = useState<
     { _id: string; name: string; price: number }[]
   >([]);
+
   const [categories, setCategories] = useState<
     { _id: string; title: string }[]
   >([]);
@@ -82,7 +88,7 @@ const ItemDetatilsStep = ({
       }
       setDiscountTypes(newDiscountTypes);
     }
-  }, [watch("items"), discountTypes]);
+  }, [watch, discountTypes]);
 
   // Fetch data
   const {
@@ -127,7 +133,6 @@ const ItemDetatilsStep = ({
     // Get the current quantity and price from the form
     const currentQuantity =
       watch(`items.${currentItemIndex || 0}.quantity`) || 1;
-    const currentPrice = watch(`items.${currentItemIndex || 0}.price`) || 0;
     const currentDiscountPercentage =
       watch(`items.${currentItemIndex || 0}.discountPercentage`) || 0;
 
@@ -135,7 +140,6 @@ const ItemDetatilsStep = ({
     setValue(`items.${currentItemIndex || 0}`, {
       productId: "",
       quantity: currentQuantity,
-      price: currentPrice,
       discountPercentage: currentDiscountPercentage,
     });
 
@@ -157,12 +161,25 @@ const ItemDetatilsStep = ({
   // Watch values for calculations
   const items = watch("items");
 
+  // Handle product selection
+  const handleProductSelect = (index: number, productId: string) => {
+    const selectedProduct = products.find((p) => p._id === productId);
+    if (selectedProduct) {
+      setValue(`items.${index}.productId`, productId);
+      setProductPrices((prev) => ({
+        ...prev,
+        [index]: selectedProduct.price,
+      }));
+    }
+  };
+
   // Calculate item totals with discount
   const calculateItemTotal = (index: number) => {
     const item = items?.[index];
     if (!item) return 0;
 
-    const baseAmount = (item.quantity || 0) * (item.price || 0);
+    const itemPrice = getItemPrice(index);
+    const baseAmount = (item.quantity || 0) * itemPrice;
     const discountAmount = item.discountPercentage
       ? (baseAmount * (item.discountPercentage || 0)) / 100
       : 0;
@@ -175,10 +192,8 @@ const ItemDetatilsStep = ({
 
   // Handle discount input changes
   const handleDiscountPercentageChange = (index: number, value: number) => {
-    const item = items?.[index];
-    if (!item) return;
-    const baseAmount = item.price || 0;
-    if (baseAmount === 0) {
+    const itemPrice = getItemPrice(index);
+    if (itemPrice === 0) {
       toast.error("Please set price first");
       return;
     }
@@ -190,21 +205,18 @@ const ItemDetatilsStep = ({
   };
 
   const handleDiscountAmountChange = (index: number, amount: number) => {
-    const item = items?.[index];
-    if (!item) return;
-
-    const baseAmount = item.price || 0;
-    if (baseAmount === 0) {
+    const itemPrice = getItemPrice(index);
+    if (itemPrice === 0) {
       toast.error("Please set price first");
       return;
     }
 
-    if (amount > baseAmount) {
+    if (amount > itemPrice) {
       toast.error("Discount amount cannot exceed item price");
       return;
     }
 
-    const percentage = (amount / baseAmount) * 100;
+    const percentage = (amount / itemPrice) * 100;
     setValue(`items.${index}.discountPercentage`, percentage);
   };
 
@@ -212,9 +224,9 @@ const ItemDetatilsStep = ({
   const getDiscountAmount = (index: number) => {
     const item = items?.[index];
     if (!item) return 0;
+    const itemPrice = getItemPrice(index);
 
-    const baseAmount = item.price || 0;
-    return (baseAmount * (item.discountPercentage || 0)) / 100;
+    return (itemPrice * (item.discountPercentage || 0)) / 100;
   };
 
   // Toggle discount type
@@ -359,12 +371,7 @@ const ItemDetatilsStep = ({
 
     // Check if any item is incomplete
     const incompleteItem = currentItems.find(
-      (item) =>
-        !item.productId ||
-        !item.quantity ||
-        !item.price ||
-        item.quantity <= 0 ||
-        item.price <= 0
+      (item) => !item.productId || !item.quantity || item.quantity <= 0
     );
 
     if (incompleteItem) {
@@ -416,7 +423,11 @@ const ItemDetatilsStep = ({
                               label: p.name,
                             }))}
                             value={field.value}
-                            onChange={field.onChange}
+                            onChange={(value) => {
+                              if (value) {
+                                handleProductSelect(index, value);
+                              }
+                            }}
                             error={errors.items?.[index]?.productId?.message}
                             classNames={{
                               input:
@@ -470,31 +481,24 @@ const ItemDetatilsStep = ({
                       />
                     </div>
                     <div className="md:col-span-2">
-                      <Controller
-                        name={`items.${index}.price`}
-                        control={control}
-                        render={({ field }) => (
-                          <NumberInput
-                            label={
-                              <span className="font-medium text-gray-700">
-                                Price
-                              </span>
-                            }
-                            placeholder="Enter price"
-                            min={0}
-                            value={field.value}
-                            onChange={(val) => field.onChange(val)}
-                            error={errors.items?.[index]?.price?.message}
-                            hideControls
-                            required
-                            classNames={{
-                              input:
-                                "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
-                              label: "!mb-1 !text-gray-700",
-                            }}
-                            variant="filled"
-                          />
-                        )}
+                      <NumberInput
+                        label={
+                          <span className="font-medium text-gray-700">
+                            Price
+                          </span>
+                        }
+                        placeholder="Price will auto-fill"
+                        min={0}
+                        value={getItemPrice(index)}
+                        readOnly
+                        hideControls
+                        required
+                        classNames={{
+                          input:
+                            "!border-gray-300 !bg-gray-100 !text-gray-600 !rounded-md",
+                          label: "!mb-1 !text-gray-700",
+                        }}
+                        variant="filled"
                       />
                     </div>
                     <div className="md:col-span-3">
@@ -553,7 +557,7 @@ const ItemDetatilsStep = ({
                                 Number(val) || 0
                               )
                             }
-                            max={items?.[index]?.price || 0}
+                            max={getItemPrice(index)}
                             hideControls
                             classNames={{
                               input:
@@ -574,9 +578,7 @@ const ItemDetatilsStep = ({
                             </span>
                             <span>
                               Base : ₹
-                              {(items?.[index]?.price || 0).toLocaleString(
-                                "en-IN"
-                              )}
+                              {getItemPrice(index).toLocaleString("en-IN")}
                             </span>
                           </div>
                         )}
@@ -698,6 +700,34 @@ const ItemDetatilsStep = ({
                         minLength={1}
                         max={18}
                         maxLength={2}
+                        hideControls
+                      />
+
+                      <NumberInput
+                        label={
+                          <span className="font-medium text-gray-700">
+                            Price
+                          </span>
+                        }
+                        placeholder="Enter price here..."
+                        value={watchProduct("price")}
+                        onChange={(value) => {
+                          if (value)
+                            setProductValue("price", value as number, {
+                              shouldValidate: true,
+                            });
+                        }}
+                        required
+                        classNames={{
+                          input:
+                            "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
+                          label: "!mb-1 !text-gray-700",
+                        }}
+                        className="w-full"
+                        error={productErrors.price?.message}
+                        variant="filled"
+                        allowNegative={false}
+                        min={0}
                         hideControls
                       />
 
@@ -827,6 +857,26 @@ const ItemDetatilsStep = ({
                     </div>
 
                     <div className="flex sm:flex-row flex-col sm:gap-6 gap-4">
+                      <NumberInput
+                        label={
+                          <span className="font-medium text-gray-700">
+                            Price
+                          </span>
+                        }
+                        placeholder="Price will auto-fill"
+                        min={0}
+                        value={getItemPrice(index)}
+                        readOnly
+                        hideControls
+                        required
+                        classNames={{
+                          input:
+                            "!border-gray-300 !bg-gray-100 !text-gray-600 !rounded-md",
+                          label: "!mb-1 !text-gray-700",
+                        }}
+                        variant="filled"
+                      />
+
                       <Controller
                         name={`items.${currentItemIndex || 0}.quantity`}
                         control={control}
@@ -843,37 +893,6 @@ const ItemDetatilsStep = ({
                             onChange={(val) => field.onChange(val)}
                             error={
                               errors.items?.[currentItemIndex || 0]?.quantity
-                                ?.message
-                            }
-                            hideControls
-                            required
-                            classNames={{
-                              input:
-                                "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
-                              label: "!mb-1 !text-gray-700",
-                            }}
-                            className="w-full"
-                            variant="filled"
-                          />
-                        )}
-                      />
-
-                      <Controller
-                        name={`items.${currentItemIndex || 0}.price`}
-                        control={control}
-                        render={({ field }) => (
-                          <NumberInput
-                            label={
-                              <span className="font-medium text-gray-700">
-                                Price
-                              </span>
-                            }
-                            placeholder="Enter price"
-                            min={0}
-                            value={field.value}
-                            onChange={(val) => field.onChange(val)}
-                            error={
-                              errors.items?.[currentItemIndex || 0]?.price
                                 ?.message
                             }
                             hideControls
@@ -944,10 +963,7 @@ const ItemDetatilsStep = ({
                                 Number(val) || 0
                               )
                             }
-                            max={
-                              (items?.[index]?.quantity || 0) *
-                              (items?.[index]?.price || 0)
-                            }
+                            max={getItemPrice(index)}
                             hideControls
                             classNames={{
                               input:
@@ -968,10 +984,7 @@ const ItemDetatilsStep = ({
                             </span>
                             <span>
                               Base : ₹
-                              {(
-                                (items?.[index]?.quantity || 0) *
-                                (items?.[index]?.price || 0)
-                              ).toLocaleString("en-IN")}
+                              {getItemPrice(index).toLocaleString("en-IN")}
                             </span>
                           </div>
                         )}
@@ -1006,7 +1019,6 @@ const ItemDetatilsStep = ({
               append({
                 productId: "",
                 quantity: 1,
-                price: 0,
                 discountPercentage: 0,
               });
               setShowAddProduct(false);

@@ -17,6 +17,7 @@ type Props = {
   errors: FieldErrors<AddBill>;
   setActiveStep: React.Dispatch<React.SetStateAction<number>>;
   containerRef: React.RefObject<HTMLDivElement | null>;
+  getItemPrice: (index: number) => number;
 };
 
 const AddOnsStep = ({
@@ -25,6 +26,7 @@ const AddOnsStep = ({
   errors,
   setActiveStep,
   containerRef,
+  getItemPrice,
 }: Props) => {
   useLayoutEffect(() => {
     if (containerRef && containerRef.current) {
@@ -45,13 +47,15 @@ const AddOnsStep = ({
   const items = watch("items") || [];
 
   // Calculate item totals with discount
-  const calculateItemTotal = (item: {
-    productId: string;
-    quantity: number;
-    price: number;
-    discountPercentage?: number;
-  }) => {
-    const baseAmount = (item.quantity || 0) * (item.price || 0);
+  const calculateItemTotal = (
+    item: {
+      productId: string;
+      quantity: number;
+      discountPercentage?: number;
+    },
+    index: number
+  ) => {
+    const baseAmount = (item.quantity || 0) * getItemPrice(index);
     const discountAmount = item.discountPercentage
       ? (baseAmount * (item.discountPercentage || 0)) / 100
       : 0;
@@ -61,12 +65,12 @@ const AddOnsStep = ({
 
   // Calculate totals
   const itemsSubtotal = items.reduce(
-    (sum, item) => sum + item.quantity * item.price,
+    (sum, item, index) => sum + item.quantity * getItemPrice(index),
     0
   );
 
-  const totalDiscount = items.reduce((sum, item) => {
-    const baseAmount = (item.quantity || 0) * (item.price || 0);
+  const totalDiscount = items.reduce((sum, item, index) => {
+    const baseAmount = (item.quantity || 0) * getItemPrice(index);
     const discountAmount = item.discountPercentage
       ? (baseAmount * (item.discountPercentage || 0)) / 100
       : 0;
@@ -74,7 +78,7 @@ const AddOnsStep = ({
   }, 0);
 
   const itemsTotal = items.reduce(
-    (sum, item) => sum + calculateItemTotal(item),
+    (sum, item, index) => sum + calculateItemTotal(item, index),
     0
   );
 

@@ -301,6 +301,7 @@ const StockUpdateForm = () => {
       categoryId: productGetValues("categoryId"),
       gstSlab: productGetValues("gstSlab"),
       hsnCode: productGetValues("hsnCode"),
+      price: productGetValues("price"),
       name: productGetValues("name"),
       unit: productGetValues("unit"),
     };
@@ -613,6 +614,34 @@ const StockUpdateForm = () => {
                                 min={0}
                                 max={18}
                                 maxLength={2}
+                                hideControls
+                              />
+
+                              <NumberInput
+                                label={
+                                  <span className="font-medium text-gray-700">
+                                    Price
+                                  </span>
+                                }
+                                placeholder="Enter price here..."
+                                value={watchProduct("price")}
+                                onChange={(value) => {
+                                  if (value)
+                                    setProductValue("price", value as number, {
+                                      shouldValidate: true,
+                                    });
+                                }}
+                                required
+                                classNames={{
+                                  input:
+                                    "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
+                                  label: "!mb-1 !text-gray-700",
+                                }}
+                                className="w-full"
+                                error={productErrors.price?.message}
+                                variant="filled"
+                                allowNegative={false}
+                                min={0}
                                 hideControls
                               />
 

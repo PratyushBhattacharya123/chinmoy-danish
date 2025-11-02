@@ -28,6 +28,10 @@ type Props = {
   containerRef: React.RefObject<HTMLDivElement | null>;
 };
 
+export interface ProductPriceMap {
+  [key: number]: number; // index -> price
+}
+
 const StepperMain = ({
   setValue,
   register,
@@ -40,6 +44,12 @@ const StepperMain = ({
   containerRef,
 }: Props) => {
   const [activeStep, setActiveStep] = useState(0);
+  const [productPrices, setProductPrices] = useState<ProductPriceMap>({});
+
+  // Get price for a specific item index
+  const getItemPrice = (index: number): number => {
+    return productPrices[index] || 0;
+  };
 
   return (
     <Stepper
@@ -105,6 +115,8 @@ const StepperMain = ({
             errors={errors}
             setActiveStep={setActiveStep}
             containerRef={containerRef}
+            setProductPrices={setProductPrices}
+            getItemPrice={getItemPrice}
           />
         )}
       </Stepper.Step>
@@ -122,6 +134,7 @@ const StepperMain = ({
             errors={errors}
             setActiveStep={setActiveStep}
             containerRef={containerRef}
+            getItemPrice={getItemPrice}
           />
         )}
       </Stepper.Step>
@@ -134,6 +147,7 @@ const StepperMain = ({
           isPending={isPending}
           containerRef={containerRef}
           type={type}
+          getItemPrice={getItemPrice}
         />
       </Stepper.Completed>
     </Stepper>

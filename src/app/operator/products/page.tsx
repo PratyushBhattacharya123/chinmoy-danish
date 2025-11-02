@@ -10,6 +10,7 @@ import {
   FiPlus,
   FiPackage,
   FiAlertTriangle,
+  FiDollarSign,
 } from "react-icons/fi";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import CustomLoader from "@/components/common/CustomLoader";
@@ -36,6 +37,7 @@ export interface ProductDataType {
   gstSlab: string;
   unit: string;
   currentStock: string;
+  price: string;
   delete: () => void;
 }
 
@@ -172,6 +174,27 @@ const Products = () => {
     }
   };
 
+  // Function to format price display
+  const formatPriceDisplay = (price: number) => {
+    if (isNaN(price) || price === 0) {
+      return {
+        text: "₹0",
+        color: "text-gray-500",
+        bgColor: "bg-gray-50",
+        borderColor: "border-gray-200",
+        iconColor: "text-gray-400",
+      };
+    }
+
+    return {
+      text: `₹${price.toLocaleString("en-IN")}`,
+      color: "text-gray-700",
+      bgColor: "bg-gray-50",
+      borderColor: "border-gray-200",
+      iconColor: "text-gray-500",
+    };
+  };
+
   const columns = [
     columnHelper.accessor("name", {
       id: "name",
@@ -208,6 +231,22 @@ const Products = () => {
         </span>
       ),
       header: () => "GST Slab",
+    }),
+    columnHelper.accessor("price", {
+      id: "price",
+      cell: (info) => {
+        const priceValue = Number(info.getValue());
+        const config = formatPriceDisplay(priceValue);
+
+        return (
+          <div
+            className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border ${config.bgColor} ${config.borderColor} ${config.color}`}
+          >
+            {config.text}
+          </div>
+        );
+      },
+      header: () => "Price",
     }),
     columnHelper.accessor("currentStock", {
       id: "currentStock",
@@ -335,6 +374,7 @@ const Products = () => {
         gstSlab: String(product.gstSlab),
         unit: product.unit,
         currentStock: String(product.currentStock),
+        price: String(product.price || 0), // Handle missing prices by defaulting to 0
         delete: () => handleDelete(product._id.toString()),
       }));
       setTableData(transformedData);

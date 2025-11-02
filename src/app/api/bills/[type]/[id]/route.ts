@@ -150,13 +150,13 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
           },
           items: {
             quantity: 1,
-            price: 1,
             discountPercentage: 1,
             productDetails: {
               _id: 1,
               name: 1,
               hsnCode: 1,
               gstSlab: 1,
+              price: 1,
               unit: 1,
               categoryDetails: {
                 _id: 1,
@@ -341,6 +341,17 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         );
       }
 
+      const itemsWithPrices = data.items.map((item) => {
+        const product = existingProducts.find(
+          (p) => p._id.toString() === item.productId
+        );
+        return {
+          quantity: item.quantity,
+          price: Number(product?.price) || 0,
+          discountPercentage: item.discountPercentage,
+        };
+      });
+
       updateData.items = data.items.map((item) => ({
         ...item,
         productId: new ObjectId(item.productId),
@@ -349,7 +360,11 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       if (data.addOns !== undefined && data.addOns.length > 0) {
         updateData.addOns = data.addOns;
       }
-      updateData.totalAmount = calculateTotalAmount(data.items, data.addOns);
+
+      updateData.totalAmount = calculateTotalAmount(
+        itemsWithPrices,
+        data.addOns
+      );
     }
 
     if (data.supplyDetails !== undefined)

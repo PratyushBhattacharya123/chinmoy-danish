@@ -119,51 +119,50 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
   };
 
   // Calculate taxable amount and GST amounts (only for products, not add-ons)
-  const { taxableAmount, gstAmount, addOnsTotal, totalDiscount } =
-    useMemo(() => {
-      if (items.length === 0 && addOns.length === 0) {
-        return {
-          taxableAmount: 0,
-          gstAmount: 0,
-          addOnsTotal: 0,
-          totalDiscount: 0,
-        };
-      }
-
-      let totalTaxable = 0;
-      let totalGST = 0;
-      let totalAddOns = 0;
-      let totalItemDiscount = 0;
-
-      // Calculate for regular items (with GST)
-      items.forEach((item) => {
-        const itemTotal = item.quantity * item.price;
-        const discountPercentage = item.discountPercentage || 0;
-        const discountAmount = (itemTotal * discountPercentage) / 100;
-        const discountedTotal = itemTotal - discountAmount;
-
-        const gstSlab = item.productDetails?.gstSlab || 18;
-        const gstRate = gstSlab / 100;
-        const taxableValue = discountedTotal / (1 + gstRate);
-        const gstValue = discountedTotal - taxableValue;
-
-        totalTaxable += taxableValue;
-        totalGST += gstValue;
-        totalItemDiscount += discountAmount;
-      });
-
-      // Calculate for add-ons (without GST)
-      addOns.forEach((addOn) => {
-        totalAddOns += addOn.price;
-      });
-
+  const { taxableAmount, gstAmount, addOnsTotal } = useMemo(() => {
+    if (items.length === 0 && addOns.length === 0) {
       return {
-        taxableAmount: totalTaxable,
-        gstAmount: totalGST,
-        addOnsTotal: totalAddOns,
-        totalDiscount: totalItemDiscount,
+        taxableAmount: 0,
+        gstAmount: 0,
+        addOnsTotal: 0,
+        totalDiscount: 0,
       };
-    }, [items, addOns]);
+    }
+
+    let totalTaxable = 0;
+    let totalGST = 0;
+    let totalAddOns = 0;
+    let totalItemDiscount = 0;
+
+    // Calculate for regular items (with GST)
+    items.forEach((item) => {
+      const itemTotal = item.quantity * (item.productDetails?.price || 0);
+      const discountPercentage = item.discountPercentage || 0;
+      const discountAmount = (itemTotal * discountPercentage) / 100;
+      const discountedTotal = itemTotal - discountAmount;
+
+      const gstSlab = item.productDetails?.gstSlab || 18;
+      const gstRate = gstSlab / 100;
+      const taxableValue = discountedTotal / (1 + gstRate);
+      const gstValue = discountedTotal - taxableValue;
+
+      totalTaxable += taxableValue;
+      totalGST += gstValue;
+      totalItemDiscount += discountAmount;
+    });
+
+    // Calculate for add-ons (without GST)
+    addOns.forEach((addOn) => {
+      totalAddOns += addOn.price;
+    });
+
+    return {
+      taxableAmount: totalTaxable,
+      gstAmount: totalGST,
+      addOnsTotal: totalAddOns,
+      totalDiscount: totalItemDiscount,
+    };
+  }, [items, addOns]);
 
   // Calculate rounding difference and final total
   const { roundingDifference, finalTotal } = useMemo(() => {
@@ -197,7 +196,7 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
     }
 
     // Regular product with GST
-    const itemTotal = item.quantity * item.price;
+    const itemTotal = item.quantity * (item.productDetails?.price || 0);
     const discountPercentage = item.discountPercentage || 0;
     const discountAmount = (itemTotal * discountPercentage) / 100;
     const discountedTotal = itemTotal - discountAmount;
@@ -205,7 +204,7 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
     const gstSlab = item.productDetails?.gstSlab || 18;
     const gstRate = gstSlab / 100;
 
-    const price = item.price / (1 + gstRate);
+    const price = (item.productDetails?.price || 0) / (1 + gstRate);
     const taxableValue = discountedTotal / (1 + gstRate);
     const gstValue = discountedTotal - taxableValue;
 
@@ -504,7 +503,11 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                       textAlign: "right",
                     }}
                   >
-                    {isAddOn ? "" : formatCurrency(item.quantity * item.price)}
+                    {isAddOn
+                      ? ""
+                      : formatCurrency(
+                          item.quantity * (item.productDetails?.price || 0)
+                        )}
                   </td>
                   {/* Discount Percentage */}
                   <td

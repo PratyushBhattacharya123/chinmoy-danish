@@ -30,7 +30,7 @@ const AddInvoice = () => {
   } = useForm<AddBill>({
     resolver: zodResolver(addBillSchema),
     defaultValues: {
-      items: [{ productId: "", quantity: 1, price: 0 }],
+      items: [{ productId: "", quantity: 1 }],
       invoiceDate: String(new Date()),
       supplyDetails: {
         supplyPlace: "",

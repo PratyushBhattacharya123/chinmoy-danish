@@ -177,31 +177,57 @@ const EditProductModalContent = ({
           maxLength={8}
         />
 
-        <NumberInput
-          label={<span className="font-medium text-gray-700">GST Slab</span>}
-          placeholder="Enter GST slab here..."
-          value={watch("gstSlab")}
-          onChange={(value) => {
-            if (value)
-              setValue("gstSlab", value as number, {
-                shouldValidate: true,
-              });
-          }}
-          required
-          classNames={{
-            input:
-              "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
-            label: "!mb-1 !text-gray-700",
-          }}
-          className="w-full"
-          error={errors.gstSlab?.message}
-          variant="filled"
-          allowNegative={false}
-          minLength={1}
-          max={18}
-          maxLength={2}
-          hideControls
-        />
+        <div className="flex sm:flex-row flex-col sm:gap-4 gap-3">
+          <NumberInput
+            label={<span className="font-medium text-gray-700">GST Slab</span>}
+            placeholder="Enter GST slab here..."
+            value={watch("gstSlab")}
+            onChange={(value) => {
+              if (value)
+                setValue("gstSlab", value as number, {
+                  shouldValidate: true,
+                });
+            }}
+            required
+            classNames={{
+              input:
+                "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
+              label: "!mb-1 !text-gray-700",
+            }}
+            className="w-full"
+            error={errors.gstSlab?.message}
+            variant="filled"
+            allowNegative={false}
+            minLength={1}
+            max={18}
+            maxLength={2}
+            hideControls
+          />
+
+          <NumberInput
+            label={<span className="font-medium text-gray-700">Price</span>}
+            placeholder="Enter price here..."
+            value={watch("price")}
+            onChange={(value) => {
+              if (value)
+                setValue("price", value as number, {
+                  shouldValidate: true,
+                });
+            }}
+            required
+            classNames={{
+              input:
+                "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
+              label: "!mb-1 !text-gray-700",
+            }}
+            className="w-full"
+            error={errors.price?.message}
+            variant="filled"
+            allowNegative={false}
+            min={0}
+            hideControls
+          />
+        </div>
 
         <Select
           label={<span className="font-medium text-gray-700">Category</span>}

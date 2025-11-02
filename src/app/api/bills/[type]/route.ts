@@ -183,13 +183,13 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
           },
           items: {
             quantity: 1,
-            price: 1,
             discountPercentage: 1,
             productDetails: {
               _id: 1,
               name: 1,
               hsnCode: 1,
               gstSlab: 1,
+              price: 1,
               unit: 1,
               categoryDetails: {
                 _id: 1,
@@ -383,6 +383,17 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         ? `INV-${financialYear}-${nextNumber.toString().padStart(4, "0")}`
         : `PRO-${financialYear}-${nextNumber.toString().padStart(4, "0")}`;
 
+    const itemsWithPrices = data.items.map((item) => {
+      const product = existingProducts.find(
+        (p) => p._id.toString() === item.productId
+      );
+      return {
+        quantity: item.quantity,
+        price: Number(product?.price) || 0,
+        discountPercentage: item.discountPercentage,
+      };
+    });
+
     // Preparing the bill document
     const billDocument = {
       ...data,
@@ -393,7 +404,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         productId: new ObjectId(item.productId),
       })),
       invoiceDate: new Date(data.invoiceDate),
-      totalAmount: calculateTotalAmount(data.items, data.addOns),
+      totalAmount: calculateTotalAmount(itemsWithPrices, data.addOns),
       supplyDetails: {
         ...data.supplyDetails,
         supplyDate: data.supplyDetails.supplyDate

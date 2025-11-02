@@ -119,7 +119,12 @@ const addProductSchema = z.object({
     .regex(hsnCodeRegex, "HSN code must be 4-8 digits")
     .trim(),
 
-  gstSlab: z.number().min(1, "GST number is required"),
+  gstSlab: z
+    .number()
+    .min(1, "GST number must be atleast 1")
+    .max(18, "GST number cannot exceed 18"),
+
+  price: z.number().min(0, "Price cannot be negative"),
 
   categoryId: z.string().min(1, "Category ID is required"),
 
@@ -158,7 +163,6 @@ export type UpdateProduct = z.infer<typeof updateProductSchema>;
 export const itemSchema = z.object({
   productId: z.string().min(1, "Product ID is required"),
   quantity: z.number().min(1, "Quantity must be at least 1"),
-  price: z.number().min(0, "Price cannot be negative"),
   discountPercentage: z
     .number()
     .min(0, "Discount percentage cannot be negative")

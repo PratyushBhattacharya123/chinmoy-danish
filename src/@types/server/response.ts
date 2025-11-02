@@ -25,6 +25,7 @@ export interface ProductsResponse {
   hsnCode: string;
   gstSlab: number;
   unit: "pcs" | "boxes" | "bags" | "rolls";
+  price: number;
   currentStock: number;
 }
 
@@ -36,7 +37,6 @@ export interface EnrichedProductsResponse
 export interface Item {
   productId: ObjectId;
   quantity: number;
-  price: number;
   discountPercentage?: number;
 }
 
@@ -71,6 +71,7 @@ export interface EnrichedItem extends Omit<Item, "productId"> {
     hsnCode: string;
     gstSlab: 5 | 18;
     unit: "pcs" | "boxes" | "bags" | "rolls";
+    price: number;
     categoryDetails: {
       _id: ObjectId;
       title: string;

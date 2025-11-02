@@ -34,7 +34,7 @@ const UpdateInvoice = () => {
   } = useForm<UpdateBill>({
     resolver: zodResolver(updateBillSchema),
     defaultValues: {
-      items: [{ productId: "", quantity: 1, price: 0 }],
+      items: [{ productId: "", quantity: 1 }],
       invoiceDate: String(new Date()),
       supplyDetails: {
         supplyPlace: "",

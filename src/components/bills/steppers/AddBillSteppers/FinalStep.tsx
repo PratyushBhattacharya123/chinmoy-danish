@@ -12,6 +12,7 @@ type Props = {
   isPending: boolean;
   containerRef: React.RefObject<HTMLDivElement | null>;
   type: "invoices" | "proforma-invoices";
+  getItemPrice: (index: number) => number;
 };
 
 const FinalStep = ({
@@ -21,6 +22,7 @@ const FinalStep = ({
   isPending,
   containerRef,
   type,
+  getItemPrice,
 }: Props) => {
   const [parties, setParties] = useState<{ _id: string; name: string }[]>([]);
   const [products, setProducts] = useState<
@@ -51,13 +53,15 @@ const FinalStep = ({
   const addOns = watch("addOns") || [];
 
   // Calculate totals with discount
-  const calculateItemTotal = (item: {
-    productId: string;
-    quantity: number;
-    price: number;
-    discountPercentage?: number;
-  }) => {
-    const baseAmount = (item.quantity || 0) * (item.price || 0);
+  const calculateItemTotal = (
+    item: {
+      productId: string;
+      quantity: number;
+      discountPercentage?: number;
+    },
+    index: number
+  ) => {
+    const baseAmount = (item.quantity || 0) * getItemPrice(index);
     const discountAmount = item.discountPercentage
       ? (baseAmount * (item.discountPercentage || 0)) / 100
       : 0;
@@ -65,29 +69,31 @@ const FinalStep = ({
     return Math.max(0, baseAmount - discountAmount);
   };
 
-  const getDiscountAmount = (item: {
-    productId: string;
-    quantity: number;
-    price: number;
-    discountPercentage?: number;
-  }) => {
-    const baseAmount = (item.quantity || 0) * (item.price || 0);
+  const getDiscountAmount = (
+    item: {
+      productId: string;
+      quantity: number;
+      discountPercentage?: number;
+    },
+    index: number
+  ) => {
+    const baseAmount = (item.quantity || 0) * getItemPrice(index);
     return (baseAmount * (item.discountPercentage || 0)) / 100;
   };
 
   // Calculate all totals
   const itemsSubtotal = items.reduce(
-    (sum, item) => sum + item.quantity * item.price,
+    (sum, item, index) => sum + item.quantity * getItemPrice(index),
     0
   );
 
   const totalDiscount = items.reduce(
-    (sum, item) => sum + getDiscountAmount(item),
+    (sum, item, index) => sum + getDiscountAmount(item, index),
     0
   );
 
   const itemsTotal = items.reduce(
-    (sum, item) => sum + calculateItemTotal(item),
+    (sum, item, index) => sum + calculateItemTotal(item, index),
     0
   );
 
@@ -175,8 +181,8 @@ const FinalStep = ({
           </div>
 
           {items.map((item, index) => {
-            const discountAmount = getDiscountAmount(item);
-            const itemTotal = calculateItemTotal(item);
+            const discountAmount = getDiscountAmount(item, index);
+            const itemTotal = calculateItemTotal(item, index);
 
             return (
               <div
@@ -191,7 +197,7 @@ const FinalStep = ({
                   {item.quantity}
                 </div>
                 <div className="col-span-2 text-right text-gray-600">
-                  ₹{item.price.toLocaleString("en-IN")}
+                  ₹{getItemPrice(index).toLocaleString("en-IN")}
                 </div>
                 <div className="col-span-2 text-right">
                   {item.discountPercentage && item.discountPercentage > 0 ? (
@@ -218,8 +224,8 @@ const FinalStep = ({
         {/* Mobile Card View */}
         <div className="md:hidden space-y-3">
           {items.map((item, index) => {
-            const discountAmount = getDiscountAmount(item);
-            const itemTotal = calculateItemTotal(item);
+            const discountAmount = getDiscountAmount(item, index);
+            const itemTotal = calculateItemTotal(item, index);
 
             return (
               <div
@@ -239,7 +245,7 @@ const FinalStep = ({
                   </div>
                   <div className="text-gray-600 text-right">
                     <span className="font-medium">Price :</span> ₹
-                    {item.price.toLocaleString("en-IN")}
+                    {getItemPrice(index).toLocaleString("en-IN")}
                   </div>
                 </div>
 
