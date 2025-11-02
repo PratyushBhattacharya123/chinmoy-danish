@@ -108,6 +108,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       updateData.categoryId = new ObjectId(data.categoryId);
     if (data.name !== undefined) updateData.name = data.name;
     if (data.gstSlab !== undefined) updateData.gstSlab = data.gstSlab;
+    if (data.price !== undefined) updateData.price = data.price;
     if (data.hsnCode !== undefined) updateData.hsnCode = data.hsnCode;
     if (data.unit !== undefined) updateData.unit = data.unit;
 
