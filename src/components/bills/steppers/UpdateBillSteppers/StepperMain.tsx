@@ -27,6 +27,8 @@ type Props = {
   isPending: boolean;
   type: "invoices" | "proforma-invoices";
   containerRef: React.RefObject<HTMLDivElement | null>;
+  setProductPrices: React.Dispatch<React.SetStateAction<ProductPriceMap>>;
+  getItemPrice: (index: number) => number;
 };
 
 const StepperMain = ({
@@ -39,14 +41,10 @@ const StepperMain = ({
   isPending,
   type,
   containerRef,
+  setProductPrices,
+  getItemPrice,
 }: Props) => {
   const [activeStep, setActiveStep] = useState(0);
-  const [productPrices, setProductPrices] = useState<ProductPriceMap>({});
-
-  // Get price for a specific item index
-  const getItemPrice = (index: number): number => {
-    return productPrices[index] || 0;
-  };
 
   return (
     <Stepper

@@ -28,6 +28,7 @@ interface ItemBreakup {
   taxableValue: number;
   discount: number;
   discountedAmount: number;
+  discountAmountWithoutGST: number;
   igst: number;
   cgst: number;
   sgst: number;
@@ -118,51 +119,62 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
     return allLineItems.slice(startIndex, startIndex + itemsPerPage);
   };
 
-  // Calculate taxable amount and GST amounts (only for products, not add-ons)
-  const { taxableAmount, gstAmount, addOnsTotal } = useMemo(() => {
-    if (items.length === 0 && addOns.length === 0) {
+  // Calculate taxable amount and GST amounts
+  const { taxableAmount, gstAmount, addOnsTotal, totalDiscount } =
+    useMemo(() => {
+      if (items.length === 0 && addOns.length === 0) {
+        return {
+          taxableAmount: 0,
+          gstAmount: 0,
+          addOnsTotal: 0,
+          totalDiscount: 0,
+        };
+      }
+
+      let totalTaxable = 0;
+      let totalGST = 0;
+      let totalAddOns = 0;
+      let totalItemDiscount = 0;
+
+      // Calculate for regular items (with GST)
+      items.forEach((item) => {
+        const unitPrice = item.productDetails?.price || 0;
+        const quantity = item.quantity;
+        const discountPercentage = item.discountPercentage || 0;
+        const gstSlab = item.productDetails?.gstSlab || 18;
+
+        // Calculate base amount without GST
+        const baseAmount = unitPrice * quantity;
+
+        // Calculate discount amount
+        const discountAmount = (baseAmount * discountPercentage) / 100;
+
+        // Calculate amount after discount
+        const amountAfterDiscount = baseAmount - discountAmount;
+
+        // Calculate taxable value (GST exclusive amount)
+        const taxableValue = amountAfterDiscount / (1 + gstSlab / 100);
+
+        // Calculate GST amount
+        const gstValue = amountAfterDiscount - taxableValue;
+
+        totalTaxable += taxableValue;
+        totalGST += gstValue;
+        totalItemDiscount += discountAmount;
+      });
+
+      // Calculate for add-ons (without GST)
+      addOns.forEach((addOn) => {
+        totalAddOns += addOn.price;
+      });
+
       return {
-        taxableAmount: 0,
-        gstAmount: 0,
-        addOnsTotal: 0,
-        totalDiscount: 0,
+        taxableAmount: totalTaxable,
+        gstAmount: totalGST,
+        addOnsTotal: totalAddOns,
+        totalDiscount: totalItemDiscount,
       };
-    }
-
-    let totalTaxable = 0;
-    let totalGST = 0;
-    let totalAddOns = 0;
-    let totalItemDiscount = 0;
-
-    // Calculate for regular items (with GST)
-    items.forEach((item) => {
-      const itemTotal = item.quantity * (item.productDetails?.price || 0);
-      const discountPercentage = item.discountPercentage || 0;
-      const discountAmount = (itemTotal * discountPercentage) / 100;
-      const discountedTotal = itemTotal - discountAmount;
-
-      const gstSlab = item.productDetails?.gstSlab || 18;
-      const gstRate = gstSlab / 100;
-      const taxableValue = discountedTotal / (1 + gstRate);
-      const gstValue = discountedTotal - taxableValue;
-
-      totalTaxable += taxableValue;
-      totalGST += gstValue;
-      totalItemDiscount += discountAmount;
-    });
-
-    // Calculate for add-ons (without GST)
-    addOns.forEach((addOn) => {
-      totalAddOns += addOn.price;
-    });
-
-    return {
-      taxableAmount: totalTaxable,
-      gstAmount: totalGST,
-      addOnsTotal: totalAddOns,
-      totalDiscount: totalItemDiscount,
-    };
-  }, [items, addOns]);
+    }, [items, addOns]);
 
   // Calculate rounding difference and final total
   const { roundingDifference, finalTotal } = useMemo(() => {
@@ -179,15 +191,16 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
   // Calculate grand total
   const grandTotal = finalTotal;
 
-  // Calculate item total with GST separation (only for products)
+  // Calculate item total with GST separation
   const calculateItemBreakup = (item: LineItem): ItemBreakup => {
     if (item.type === "addon") {
       // Add-ons don't have GST
       return {
-        price: 0,
+        price: item.price,
         taxableValue: 0,
         discount: 0,
         discountedAmount: 0,
+        discountAmountWithoutGST: 0,
         igst: 0,
         cgst: 0,
         sgst: 0,
@@ -196,39 +209,56 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
     }
 
     // Regular product with GST
-    const itemTotal = item.quantity * (item.productDetails?.price || 0);
+    const unitPrice = item.productDetails?.price || 0;
+    const quantity = item.quantity;
     const discountPercentage = item.discountPercentage || 0;
-    const discountAmount = (itemTotal * discountPercentage) / 100;
-    const discountedTotal = itemTotal - discountAmount;
-
     const gstSlab = item.productDetails?.gstSlab || 18;
     const gstRate = gstSlab / 100;
 
-    const price = (item.productDetails?.price || 0) / (1 + gstRate);
-    const taxableValue = discountedTotal / (1 + gstRate);
-    const gstValue = discountedTotal - taxableValue;
+    // Calculate base amount
+    const baseAmount = unitPrice * quantity;
+
+    // Calculate discount amount
+    const discountAmount = (baseAmount * discountPercentage) / 100;
+
+    // Calculate discount amount
+    const discountAmountWithoutGST = discountAmount / (1 + gstRate);
+
+    // Calculate amount after discount
+    const amountAfterDiscount = baseAmount - discountAmount;
+
+    // Calculate taxable value (GST exclusive amount)
+    const taxableValue = amountAfterDiscount / (1 + gstRate);
+
+    // Calculate GST amount
+    const gstValue = amountAfterDiscount - taxableValue;
+
+    // Calculate unit price without GST for display
+    const priceWithoutGST = unitPrice / (1 + gstRate);
 
     if (isInterState) {
       return {
-        price,
-        taxableValue,
+        price: priceWithoutGST,
+        taxableValue: taxableValue,
         discount: discountPercentage,
         discountedAmount: discountAmount,
+        discountAmountWithoutGST,
         igst: gstValue,
         cgst: 0,
         sgst: 0,
-        itemTotal: discountedTotal,
+        itemTotal: amountAfterDiscount,
       };
     } else {
       return {
-        price,
-        taxableValue,
+        price: priceWithoutGST,
+        taxableValue: taxableValue,
         discount: discountPercentage,
         discountedAmount: discountAmount,
+        discountAmountWithoutGST: discountAmountWithoutGST,
         igst: 0,
         cgst: gstValue / 2,
         sgst: gstValue / 2,
-        itemTotal: discountedTotal,
+        itemTotal: amountAfterDiscount,
       };
     }
   };
@@ -268,7 +298,7 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                 style={{
                   border: "1px solid rgb(209, 213, 219)",
                   padding: "4px",
-                  minWidth: "100px",
+                  minWidth: "80px",
                   textAlign: "center",
                 }}
               >
@@ -310,16 +340,8 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
               >
                 Rate (₹)
               </th>
-              <th
-                style={{
-                  border: "1px solid rgb(209, 213, 219)",
-                  padding: "4px",
-                  width: "64px",
-                }}
-              >
-                Amount (₹)
-              </th>
-              {/* New Discount Column */}
+
+              {/* Discount Column */}
               <th
                 style={{
                   border: "1px solid rgb(209, 213, 219)",
@@ -329,6 +351,7 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
               >
                 Disc. (%)
               </th>
+
               <th
                 style={{
                   border: "1px solid rgb(209, 213, 219)",
@@ -338,6 +361,17 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
               >
                 Disc. Amt (₹)
               </th>
+
+              <th
+                style={{
+                  border: "1px solid rgb(209, 213, 219)",
+                  padding: "4px",
+                  width: "64px",
+                }}
+              >
+                Taxable Amt (₹)
+              </th>
+
               {isInterState ? (
                 <>
                   <th
@@ -399,6 +433,7 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                   </th>
                 </>
               )}
+
               <th
                 style={{
                   border: "1px solid rgb(209, 213, 219)",
@@ -496,19 +531,7 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                   >
                     {isAddOn ? "" : formatCurrency(breakup.price)}
                   </td>
-                  <td
-                    style={{
-                      borderRight: "1px solid rgb(209, 213, 219)",
-                      padding: "4px",
-                      textAlign: "right",
-                    }}
-                  >
-                    {isAddOn
-                      ? ""
-                      : formatCurrency(
-                          item.quantity * (item.productDetails?.price || 0)
-                        )}
-                  </td>
+
                   {/* Discount Percentage */}
                   <td
                     style={{
@@ -523,6 +546,7 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                       ? `${breakup.discount}%`
                       : ""}
                   </td>
+
                   {/* Discount Amount */}
                   <td
                     style={{
@@ -533,9 +557,17 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                   >
                     {isAddOn
                       ? ""
-                      : breakup.discount > 0
-                      ? formatCurrency(breakup.discountedAmount)
-                      : ""}
+                      : formatCurrency(breakup.discountAmountWithoutGST)}
+                  </td>
+
+                  <td
+                    style={{
+                      borderRight: "1px solid rgb(209, 213, 219)",
+                      padding: "4px",
+                      textAlign: "right",
+                    }}
+                  >
+                    {isAddOn ? "" : formatCurrency(breakup.taxableValue)}
                   </td>
 
                   {isInterState ? (
@@ -681,23 +713,6 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                   >
                     &nbsp;
                   </td>
-                  {/* Empty discount columns */}
-                  <td
-                    style={{
-                      borderRight: "1px solid rgb(209, 213, 219)",
-                      padding: "4px",
-                    }}
-                  >
-                    &nbsp;
-                  </td>
-                  <td
-                    style={{
-                      borderRight: "1px solid rgb(209, 213, 219)",
-                      padding: "4px",
-                    }}
-                  >
-                    &nbsp;
-                  </td>
 
                   {isInterState ? (
                     <>
@@ -754,6 +769,25 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                       </td>
                     </>
                   )}
+
+                  <td
+                    style={{
+                      borderRight: "1px solid rgb(209, 213, 219)",
+                      padding: "4px",
+                    }}
+                  >
+                    &nbsp;
+                  </td>
+
+                  {/* Empty discount columns */}
+                  <td
+                    style={{
+                      borderRight: "1px solid rgb(209, 213, 219)",
+                      padding: "4px",
+                    }}
+                  >
+                    &nbsp;
+                  </td>
 
                   <td
                     style={{
@@ -853,7 +887,7 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                 >
                   Khagen Mahanta Road, Hengrabari
                   <br />
-                  Opp. Neha Apartment, Kamrup (M)
+                  Near Kali Mandir, Kamrup (M)
                   <br />
                   Guwahati-781036, Assam
                 </p>
@@ -1176,7 +1210,7 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                             </td>
                           </tr>
                         )}
-                        {/* {totalDiscount > 0 && (
+                        {totalDiscount > 0 && (
                           <tr>
                             <td
                               style={{
@@ -1192,12 +1226,12 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                                 padding: "4px",
                                 textAlign: "right",
                               }}
-                              className="text-green-700"
+                              className="text-green-700 font-medium"
                             >
                               ₹{formatCurrency(totalDiscount)}
                             </td>
                           </tr>
-                        )} */}
+                        )}
                         <tr style={{ backgroundColor: "rgb(249, 250, 251)" }}>
                           <td
                             style={{

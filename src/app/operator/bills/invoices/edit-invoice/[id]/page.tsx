@@ -13,8 +13,9 @@ import { useParams, useRouter } from "next/navigation";
 import { useDisclosure } from "@mantine/hooks";
 import ImportModalUpdate from "@/components/bills/modals/ImportModalUpdate";
 import StepperMain from "@/components/bills/steppers/UpdateBillSteppers/StepperMain";
-import { useBillData } from "@/hooks/use-queries";
+import { useBillData, useProductsData } from "@/hooks/use-queries";
 import CustomLoader from "@/components/common/CustomLoader";
+import { ProductPriceMap } from "@/components/bills/steppers/AddBillSteppers/StepperMain";
 
 const UpdateInvoice = () => {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +24,12 @@ const UpdateInvoice = () => {
   const router = useRouter();
   const queryClient = useQueryClient();
   const containerRef = useRef<HTMLDivElement>(null);
+  const [productPrices, setProductPrices] = useState<ProductPriceMap>({});
+
+  // Get price for a specific item index
+  const getItemPrice = (index: number): number => {
+    return productPrices[index] || 0;
+  };
 
   const {
     register,
@@ -43,6 +50,11 @@ const UpdateInvoice = () => {
         supplyDate: undefined,
       },
     },
+  });
+
+  const { data: productsData, isSuccess: productsSuccess } = useProductsData({
+    limit: 1000,
+    offset: 0,
   });
 
   // Update invoice mutation
@@ -87,7 +99,7 @@ const UpdateInvoice = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (billSuccess && billData) {
+    if (billSuccess && billData && productsSuccess && productsData) {
       setLoading(true);
 
       setBillNumber(billData.billNumber);
@@ -110,9 +122,22 @@ const UpdateInvoice = () => {
       );
       setValue("addOns", billData.addOns);
 
+      const newProductPrices: ProductPriceMap = {};
+
+      billData.items.forEach((item, index) => {
+        const product = productsData.products.find(
+          (p) => p._id.toString() === item.productDetails?._id.toString()
+        );
+        if (product) {
+          newProductPrices[index] = product.price;
+        }
+      });
+
+      setProductPrices(newProductPrices);
+
       setLoading(false);
     }
-  }, [billSuccess, billData, setValue]);
+  }, [billSuccess, billData, setValue, productsSuccess, productsData]);
 
   const handleSubmit = () => {
     const data: UpdateBill = {
@@ -180,6 +205,8 @@ const UpdateInvoice = () => {
                 isPending={isPending}
                 type="invoices"
                 containerRef={containerRef}
+                setProductPrices={setProductPrices}
+                getItemPrice={getItemPrice}
               />
             </div>
           )}

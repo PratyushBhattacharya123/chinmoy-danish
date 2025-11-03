@@ -79,7 +79,7 @@ const ItemDetatilsStep = ({
     refetch: refetchProducts,
     isLoading,
   } = useProductsData({
-    limit: 100,
+    limit: 1000,
     offset: 0,
   });
 

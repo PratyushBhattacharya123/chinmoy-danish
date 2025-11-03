@@ -144,6 +144,8 @@ const PartyDetails = () => {
       });
 
       if (!response.ok) {
+        const errorData = await response.json();
+
         if (response.status === 401) {
           toast.error("You're not authorized to delete party!", {
             style: {
@@ -153,10 +155,18 @@ const PartyDetails = () => {
             icon: "🔒",
           });
           return response.json();
+        } else if (response.status === 409) {
+          toast.error(
+            errorData.error ||
+              "Cannot delete party details : It is being used in bill!",
+            {
+              icon: "⚠️",
+            }
+          );
         } else {
-          toast.error("Internal server error");
-          return;
+          toast.error(errorData.error || "Failed to delete party details!");
         }
+        return errorData;
       } else {
         toast.success("Party details deleted successfully!", {
           iconTheme: {
