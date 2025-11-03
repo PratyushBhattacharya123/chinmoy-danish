@@ -358,20 +358,22 @@ const FinalStep = ({
             </>
           )}
 
-          <div className="flex justify-between items-center border-gray-300">
-            <span className="text-gray-700 font-medium">Items Total :</span>
-            <span className="font-medium text-gray-700">
-              ₹{itemsTotal.toLocaleString("en-IN")}
-            </span>
-          </div>
-
           {addOns.length > 0 && (
-            <div className="flex justify-between items-center">
-              <span className="text-gray-700">Additional Charges :</span>
-              <span className="font-medium">
-                ₹{addOnsTotal.toLocaleString("en-IN")}
-              </span>
-            </div>
+            <>
+              <div className="flex justify-between items-center border-gray-300">
+                <span className="text-gray-700 font-medium">Items Total :</span>
+                <span className="font-medium text-gray-700">
+                  ₹{itemsTotal.toLocaleString("en-IN")}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-gray-700">Additional Charges :</span>
+                <span className="font-medium">
+                  ₹{addOnsTotal.toLocaleString("en-IN")}
+                </span>
+              </div>
+            </>
           )}
 
           <div className="border-t border-gray-300 pt-3 mt-2">

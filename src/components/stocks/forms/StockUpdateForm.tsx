@@ -643,6 +643,7 @@ const StockUpdateForm = () => {
                                 allowNegative={false}
                                 min={0}
                                 hideControls
+                                prefix="₹"
                               />
 
                               <Select

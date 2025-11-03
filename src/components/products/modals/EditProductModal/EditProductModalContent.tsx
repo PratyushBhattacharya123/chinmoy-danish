@@ -108,8 +108,13 @@ const EditProductModalContent = ({
 
       setValue("gstSlab", parseInt(innerProps.data.gstSlab) as 5 | 18);
 
-      setValue("unit", innerProps.data.unit as "pcs" | "boxes" | "bags");
+      setValue(
+        "unit",
+        innerProps.data.unit as "pcs" | "boxes" | "bags" | "rolls"
+      );
       setUnitValue(innerProps.data.unit);
+
+      setValue("price", parseInt(innerProps.data.price));
 
       setValue("categoryId", innerProps.data.categoryId);
       setCategoryValue(innerProps.data.categoryId);
@@ -226,6 +231,7 @@ const EditProductModalContent = ({
             allowNegative={false}
             min={0}
             hideControls
+            prefix="₹"
           />
         </div>
 

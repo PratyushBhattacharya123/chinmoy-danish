@@ -183,6 +183,7 @@ const ProductAdd = ({ onClose }: Props) => {
           allowNegative={false}
           min={0}
           hideControls
+          prefix="₹"
         />
       </div>
 

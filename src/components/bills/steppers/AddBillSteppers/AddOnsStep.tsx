@@ -213,20 +213,22 @@ const AddOnsStep = ({
             </>
           )}
 
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600 font-medium">Items Total :</span>
-            <span className="font-medium">
-              ₹{itemsTotal.toLocaleString("en-IN")}
-            </span>
-          </div>
-
           {addOns.length > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Additional Charges :</span>
-              <span className="font-medium">
-                ₹{addOnsTotal.toLocaleString("en-IN")}
-              </span>
-            </div>
+            <>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600 font-medium">Items Total :</span>
+                <span className="font-medium">
+                  ₹{itemsTotal.toLocaleString("en-IN")}
+                </span>
+              </div>
+
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Additional Charges :</span>
+                <span className="font-medium">
+                  ₹{addOnsTotal.toLocaleString("en-IN")}
+                </span>
+              </div>
+            </>
           )}
 
           <div className="border-t border-gray-300 pt-2 flex justify-between font-bold text-base">

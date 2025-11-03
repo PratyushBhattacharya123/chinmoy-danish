@@ -43,8 +43,6 @@ type Props = {
   getItemPrice: (index: number) => number;
 };
 
-type DiscountType = "percentage" | "amount";
-
 const ItemDetatilsStep = ({
   setValue,
   watch,
@@ -65,7 +63,6 @@ const ItemDetatilsStep = ({
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [currentItemIndex, setCurrentItemIndex] = useState<number>();
   const [selectedCategory, setSelectedCategory] = useState("");
-  const [discountTypes, setDiscountTypes] = useState<DiscountType[]>([]);
 
   useLayoutEffect(() => {
     if (containerRef && containerRef.current) {
@@ -75,19 +72,6 @@ const ItemDetatilsStep = ({
       });
     }
   }, []);
-
-  // Initialize discount types array based on fields
-  useEffect(() => {
-    const items = watch("items");
-    if (items && items.length > discountTypes.length) {
-      // Initialize new items with percentage discount type
-      const newDiscountTypes = [...discountTypes];
-      for (let i = discountTypes.length; i < items.length; i++) {
-        newDiscountTypes.push("percentage");
-      }
-      setDiscountTypes(newDiscountTypes);
-    }
-  }, [watch, discountTypes]);
 
   // Fetch data
   const {
@@ -203,22 +187,6 @@ const ItemDetatilsStep = ({
     setValue(`items.${index}.discountPercentage`, value || 0);
   };
 
-  const handleDiscountAmountChange = (index: number, amount: number) => {
-    const itemPrice = getItemPrice(index);
-    if (itemPrice === 0) {
-      toast.error("Please set price first");
-      return;
-    }
-
-    if (amount > itemPrice) {
-      toast.error("Discount amount cannot exceed item price");
-      return;
-    }
-
-    const percentage = (amount / itemPrice) * 100;
-    setValue(`items.${index}.discountPercentage`, percentage);
-  };
-
   // Get discount amount for display
   const getDiscountAmount = (index: number) => {
     const item = items?.[index];
@@ -228,21 +196,13 @@ const ItemDetatilsStep = ({
     return (itemPrice * (item.discountPercentage || 0)) / 100;
   };
 
-  // Toggle discount type
-  const toggleDiscountType = (index: number) => {
-    const newDiscountTypes = [...discountTypes];
-    newDiscountTypes[index] =
-      newDiscountTypes[index] === "percentage" ? "amount" : "percentage";
-    setDiscountTypes(newDiscountTypes);
-  };
-
   useEffect(() => {
     if (productsData?.products) {
       setProducts(
         productsData.products.map((p) => ({
           _id: p._id.toString(),
           name: p.name,
-          price: 0,
+          price: p.price,
         }))
       );
     }
@@ -502,79 +462,44 @@ const ItemDetatilsStep = ({
                     </div>
                     <div className="md:col-span-3">
                       <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <label className="font-medium text-gray-700 text-sm">
-                            Discount
-                          </label>
-                          <Button
-                            variant="subtle"
-                            size="xs"
-                            onClick={() => toggleDiscountType(index)}
-                            className="!text-gray-600 !p-1 !h-6 hover:!bg-gray-200"
-                          >
-                            {discountTypes[index] === "percentage" ? "₹" : "%"}
-                          </Button>
-                        </div>
-                        {discountTypes[index] === "percentage" ? (
-                          <Controller
-                            name={`items.${index}.discountPercentage`}
-                            control={control}
-                            render={({ field }) => (
-                              <NumberInput
-                                placeholder="Discount %"
-                                min={0}
-                                max={100}
-                                value={field.value || 0}
-                                onChange={(val) =>
-                                  handleDiscountPercentageChange(
-                                    index,
-                                    Number(val) || 0
-                                  )
-                                }
-                                error={
-                                  errors.items?.[index]?.discountPercentage
-                                    ?.message
-                                }
-                                hideControls
-                                classNames={{
-                                  input:
-                                    "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
-                                }}
-                                rightSection={<span>%</span>}
-                                variant="filled"
-                              />
-                            )}
-                          />
-                        ) : (
-                          <NumberInput
-                            placeholder="Discount ₹"
-                            min={0}
-                            value={getDiscountAmount(index)}
-                            onChange={(val) =>
-                              handleDiscountAmountChange(
-                                index,
-                                Number(val) || 0
-                              )
-                            }
-                            max={getItemPrice(index)}
-                            hideControls
-                            classNames={{
-                              input:
-                                "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
-                            }}
-                            rightSection={<span>₹</span>}
-                            variant="filled"
-                          />
-                        )}
+                        <Controller
+                          name={`items.${index}.discountPercentage`}
+                          control={control}
+                          render={({ field }) => (
+                            <NumberInput
+                              label={
+                                <span className="font-medium text-gray-700">
+                                  Discount
+                                </span>
+                              }
+                              placeholder="Discount %"
+                              min={0}
+                              max={100}
+                              value={field.value || 0}
+                              onChange={(val) =>
+                                handleDiscountPercentageChange(
+                                  index,
+                                  Number(val) || 0
+                                )
+                              }
+                              error={
+                                errors.items?.[index]?.discountPercentage
+                                  ?.message
+                              }
+                              hideControls
+                              classNames={{
+                                input:
+                                  "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
+                                label: "!mb-1 !text-gray-700",
+                              }}
+                              rightSection={<span>%</span>}
+                              variant="filled"
+                            />
+                          )}
+                        />
                         {(items?.[index]?.discountPercentage || 0) > 0 && (
                           <div className="text-xs text-gray-600 flex justify-between">
-                            <span>
-                              {discountTypes[index] === "percentage"
-                                ? `₹${getDiscountAmount(index).toFixed(2)}`
-                                : `${(
-                                    items?.[index]?.discountPercentage || 0
-                                  ).toFixed(1)}%`}
-                            </span>
+                            <span>₹{getDiscountAmount(index).toFixed(2)}</span>
                             <span>
                               Base : ₹
                               {getItemPrice(index).toLocaleString("en-IN")}
@@ -728,6 +653,7 @@ const ItemDetatilsStep = ({
                         allowNegative={false}
                         min={0}
                         hideControls
+                        prefix="₹"
                       />
 
                       <Select
@@ -908,79 +834,44 @@ const ItemDetatilsStep = ({
                       />
 
                       <div className="space-y-1 w-full">
-                        <div className="flex items-center justify-between">
-                          <label className="font-medium text-gray-700 text-sm">
-                            Discount
-                          </label>
-                          <Button
-                            variant="subtle"
-                            size="xs"
-                            onClick={() => toggleDiscountType(index)}
-                            className="!text-gray-600 !p-1 !h-6 hover:!bg-gray-200"
-                          >
-                            {discountTypes[index] === "percentage" ? "₹" : "%"}
-                          </Button>
-                        </div>
-                        {discountTypes[index] === "percentage" ? (
-                          <Controller
-                            name={`items.${index}.discountPercentage`}
-                            control={control}
-                            render={({ field }) => (
-                              <NumberInput
-                                placeholder="Discount %"
-                                min={0}
-                                max={100}
-                                value={field.value || 0}
-                                onChange={(val) =>
-                                  handleDiscountPercentageChange(
-                                    index,
-                                    Number(val) || 0
-                                  )
-                                }
-                                error={
-                                  errors.items?.[index]?.discountPercentage
-                                    ?.message
-                                }
-                                hideControls
-                                classNames={{
-                                  input:
-                                    "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
-                                }}
-                                rightSection={<span>%</span>}
-                                variant="filled"
-                              />
-                            )}
-                          />
-                        ) : (
-                          <NumberInput
-                            placeholder="Discount ₹"
-                            min={0}
-                            value={getDiscountAmount(index)}
-                            onChange={(val) =>
-                              handleDiscountAmountChange(
-                                index,
-                                Number(val) || 0
-                              )
-                            }
-                            max={getItemPrice(index)}
-                            hideControls
-                            classNames={{
-                              input:
-                                "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
-                            }}
-                            rightSection={<span>₹</span>}
-                            variant="filled"
-                          />
-                        )}
+                        <Controller
+                          name={`items.${index}.discountPercentage`}
+                          control={control}
+                          render={({ field }) => (
+                            <NumberInput
+                              label={
+                                <span className="font-medium text-gray-700">
+                                  Discount
+                                </span>
+                              }
+                              placeholder="Discount %"
+                              min={0}
+                              max={100}
+                              value={field.value || 0}
+                              onChange={(val) =>
+                                handleDiscountPercentageChange(
+                                  index,
+                                  Number(val) || 0
+                                )
+                              }
+                              error={
+                                errors.items?.[index]?.discountPercentage
+                                  ?.message
+                              }
+                              hideControls
+                              classNames={{
+                                input:
+                                  "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
+                                label: "!mb-1 !text-gray-700",
+                              }}
+                              rightSection={<span>%</span>}
+                              variant="filled"
+                            />
+                          )}
+                        />
                         {(items?.[index]?.discountPercentage || 0) > 0 && (
                           <div className="text-xs text-gray-600 flex justify-between">
-                            <span>
-                              {discountTypes[index] === "percentage"
-                                ? `₹${getDiscountAmount(index).toFixed(2)}`
-                                : `${(
-                                    items?.[index]?.discountPercentage || 0
-                                  ).toFixed(1)}%`}
-                            </span>
+                            <span>₹{getDiscountAmount(index).toFixed(2)}</span>
                             <span>
                               Base : ₹
                               {getItemPrice(index).toLocaleString("en-IN")}
