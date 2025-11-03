@@ -557,7 +557,9 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                   >
                     {isAddOn
                       ? ""
-                      : formatCurrency(breakup.discountAmountWithoutGST)}
+                      : formatCurrency(breakup.discountAmountWithoutGST)
+                      ? formatCurrency(breakup.discountAmountWithoutGST)
+                      : ""}
                   </td>
 
                   <td
