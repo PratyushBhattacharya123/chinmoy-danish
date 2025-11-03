@@ -557,7 +557,7 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                   >
                     {isAddOn
                       ? ""
-                      : formatCurrency(breakup.discountAmountWithoutGST)
+                      : breakup.discountAmountWithoutGST
                       ? formatCurrency(breakup.discountAmountWithoutGST)
                       : ""}
                   </td>
@@ -989,7 +989,7 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                     </tr>
                     <tr>
                       <td style={{ paddingRight: "8px" }}>
-                        <strong>Invoice Date:</strong>
+                        <strong>Invoice Date :</strong>
                       </td>
                       <td>
                         {convertToDateFormat(String(billData?.invoiceDate))}

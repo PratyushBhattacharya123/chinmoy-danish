@@ -56,8 +56,6 @@ const DownloadBill = () => {
     }
   }, [billData, isSuccess]);
 
-  console.log({ billData, data });
-
   useEffect(() => {
     setIsComponentLoaded(true);
   }, []);
@@ -108,9 +106,19 @@ const DownloadBill = () => {
         useCORS: true,
         allowTaint: false,
         logging: false,
-        scale: 2,
+        scale: 3,
         backgroundColor: "#ffffff",
         removeContainer: true,
+        width: 794,
+        height: 1123,
+        onclone: (clonedDoc) => {
+          const allElements = clonedDoc.querySelectorAll("*");
+          allElements.forEach((el) => {
+            const element = el as HTMLElement;
+            element.style.textRendering = "geometricPrecision";
+          });
+        },
+        foreignObjectRendering: false,
       });
 
       const pdf = new jsPDF({
@@ -123,7 +131,6 @@ const DownloadBill = () => {
       const imgWidth = 210;
       const pageHeight = 297;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      // let heightLeft = imgHeight;
       let position = 0;
 
       pdf.addImage(
