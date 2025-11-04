@@ -553,7 +553,7 @@ const Products = () => {
         SERIAL_NO: { x: 10, width: 15 },
         PRODUCT_NAME: { x: 25, width: 70 },
         CATEGORY: { x: 95, width: 30 },
-        PRICE: { x: 130, width: 25 },
+        PRICE: { x: 125, width: 25 },
         STOCK: { x: 150, width: 20 },
         TOTAL_VALUE: { x: 170, width: 30 },
       };
@@ -586,6 +586,16 @@ const Products = () => {
         return lines;
       };
 
+      // Function to get right-aligned x position for text
+      const getRightAlignedX = (
+        text: string,
+        columnX: number,
+        columnWidth: number
+      ): number => {
+        const textWidth = doc.getTextWidth(text);
+        return columnX + columnWidth - textWidth - 2; // -2 for small padding
+      };
+
       // Function to add a complete page header
       const addPageHeader = (pageNumber: number) => {
         // Title
@@ -603,22 +613,40 @@ const Products = () => {
         );
         doc.text(`Page: ${pageNumber}`, 180, 22);
 
-        // Table headers
+        // Table headers - right align numeric columns
         doc.setFontSize(11);
         doc.setFont("bold");
         doc.text("Sl.No.", COLUMNS.SERIAL_NO.x, TABLE_HEADER_Y);
         doc.text("Product Name", COLUMNS.PRODUCT_NAME.x, TABLE_HEADER_Y);
         doc.text("Category", COLUMNS.CATEGORY.x, TABLE_HEADER_Y);
-        doc.text("Price", COLUMNS.PRICE.x, TABLE_HEADER_Y);
-        doc.text("Stock", COLUMNS.STOCK.x, TABLE_HEADER_Y);
-        doc.text("Total Value", COLUMNS.TOTAL_VALUE.x, TABLE_HEADER_Y);
+
+        // Right-aligned headers for numeric columns
+        doc.text(
+          "Price",
+          getRightAlignedX("Price", COLUMNS.PRICE.x, COLUMNS.PRICE.width),
+          TABLE_HEADER_Y
+        );
+        doc.text(
+          "Stock",
+          getRightAlignedX("Stock", COLUMNS.STOCK.x, COLUMNS.STOCK.width),
+          TABLE_HEADER_Y
+        );
+        doc.text(
+          "Total Value",
+          getRightAlignedX(
+            "Total Value",
+            COLUMNS.TOTAL_VALUE.x,
+            COLUMNS.TOTAL_VALUE.width
+          ),
+          TABLE_HEADER_Y
+        );
 
         // Header line
         doc.setLineWidth(0.5);
         doc.line(
           PAGE_MARGIN,
           TABLE_HEADER_Y + 2,
-          200 - PAGE_MARGIN,
+          210 - PAGE_MARGIN,
           TABLE_HEADER_Y + 2
         );
 
@@ -668,15 +696,32 @@ const Products = () => {
         });
 
         doc.text(product.category, COLUMNS.CATEGORY.x, currentY);
+
+        // Right-aligned numeric values
+        const priceText = `Rs. ${product.price.toLocaleString("en-IN")}`;
         doc.text(
-          `Rs. ${product.price.toLocaleString("en-IN")}`,
-          COLUMNS.PRICE.x,
+          priceText,
+          getRightAlignedX(priceText, COLUMNS.PRICE.x, COLUMNS.PRICE.width),
           currentY
         );
-        doc.text(product.currentStock.toString(), COLUMNS.STOCK.x, currentY);
+
+        const stockText = product.currentStock.toString();
         doc.text(
-          `Rs. ${product.itemTotalValue.toLocaleString("en-IN")}`,
-          COLUMNS.TOTAL_VALUE.x,
+          stockText,
+          getRightAlignedX(stockText, COLUMNS.STOCK.x, COLUMNS.STOCK.width),
+          currentY
+        );
+
+        const totalValueText = `Rs. ${product.itemTotalValue.toLocaleString(
+          "en-IN"
+        )}`;
+        doc.text(
+          totalValueText,
+          getRightAlignedX(
+            totalValueText,
+            COLUMNS.TOTAL_VALUE.x,
+            COLUMNS.TOTAL_VALUE.width
+          ),
           currentY
         );
 
@@ -691,6 +736,10 @@ const Products = () => {
         addPageHeader(currentPage);
       }
 
+      // Ending starting line
+      doc.setLineWidth(0.3);
+      doc.line(PAGE_MARGIN, yPosition + 2, 210 - PAGE_MARGIN, yPosition + 2);
+
       // Add empty row before summary
       yPosition += 10;
 
@@ -700,10 +749,19 @@ const Products = () => {
       doc.text("SUMMARY", COLUMNS.SERIAL_NO.x, yPosition);
       yPosition += 8;
 
-      // Total Material in Stock
+      // Total Material in Stock - right aligned
       doc.setFontSize(10);
       doc.text("Total Material in Stock :", COLUMNS.SERIAL_NO.x, yPosition);
-      doc.text(totalMaterialInStock.toString(), COLUMNS.CATEGORY.x, yPosition);
+      const totalStockText = totalMaterialInStock.toString();
+      doc.text(
+        totalStockText,
+        getRightAlignedX(
+          totalStockText,
+          COLUMNS.PRODUCT_NAME.x,
+          COLUMNS.PRODUCT_NAME.width
+        ),
+        yPosition
+      );
       yPosition += 6;
 
       // Total Value in Stock
@@ -712,11 +770,23 @@ const Products = () => {
         COLUMNS.SERIAL_NO.x,
         yPosition
       );
+      const totalValueText = `Rs. ${totalValueInStock.toLocaleString("en-IN")}`;
       doc.text(
-        `Rs. ${totalValueInStock.toLocaleString("en-IN")}`,
-        COLUMNS.CATEGORY.x,
+        totalValueText,
+        getRightAlignedX(
+          totalValueText,
+          COLUMNS.PRODUCT_NAME.x,
+          COLUMNS.PRODUCT_NAME.width
+        ),
         yPosition
       );
+
+      // Add empty row after summary
+      yPosition += 5;
+
+      // Ending ending line
+      doc.setLineWidth(0.3);
+      doc.line(PAGE_MARGIN, yPosition + 2, 210 - PAGE_MARGIN, yPosition + 2);
 
       doc.save(`products_${new Date().toISOString().split("T")[0]}.pdf`);
       toast.success("Products exported to PDF successfully!");
