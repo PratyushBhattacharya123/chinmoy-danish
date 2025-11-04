@@ -382,22 +382,100 @@ const Products = () => {
       const exportData = await response.json();
       const products = exportData.products || [];
 
+      // Calculate totals
+      let totalMaterialInStock = 0;
+      let totalValueInStock = 0;
+
       const excelData = products.map(
-        (product: EnrichedProductsResponse, index: number) => ({
-          "Sl.No.": index + 1,
-          "Product Name": product.name,
-          Category: product.categoryDetails?.title || "Unknown Category",
-          "Price (₹)": product.price || 0,
-        })
+        (product: EnrichedProductsResponse, index: number) => {
+          const currentStock = product.currentStock || 0;
+          const price = product.price || 0;
+          const itemTotalValue = currentStock * price;
+
+          totalMaterialInStock += currentStock;
+          totalValueInStock += itemTotalValue;
+
+          return {
+            "Sl.No.": index + 1,
+            "Product Name": product.name,
+            Category: product.categoryDetails?.title || "Unknown Category",
+            "Price (₹)": price,
+            "Current Stock": currentStock,
+            "Item Total Value (₹)": itemTotalValue,
+          };
+        }
       );
+
+      // Add summary rows
+      const summaryRows = [
+        {}, // Empty row for spacing
+        {
+          "Sl.No.": "SUMMARY",
+          "Product Name": "TOTAL MATERIAL IN STOCK",
+          "Current Stock": totalMaterialInStock,
+          "Item Total Value (₹)": totalValueInStock,
+        },
+      ];
+
+      const finalData = [...excelData, ...summaryRows];
 
       // Create worksheet
       const XLSX = await import("xlsx");
-      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      const worksheet = XLSX.utils.json_to_sheet(finalData);
 
-      // Set column widths
-      const columnWidths = [{ wch: 8 }, { wch: 50 }, { wch: 25 }, { wch: 15 }];
+      // Set column widths for better formatting
+      const columnWidths = [
+        { wch: 15 }, // Sl.No.
+        { wch: 40 }, // Product Name (wider for wrapping)
+        { wch: 25 }, // Category
+        { wch: 15 }, // Price
+        { wch: 15 }, // Current Stock
+        { wch: 20 }, // Item Total Value
+      ];
       worksheet["!cols"] = columnWidths;
+
+      // Apply styles for summary row
+      if (worksheet["!ref"]) {
+        const range = XLSX.utils.decode_range(worksheet["!ref"]);
+        const summaryRow = range.e.r + 2; // +2 because of empty row and summary row
+
+        // Style summary row
+        ["A", "B", "E", "F"].forEach((col) => {
+          const cellAddress = `${col}${summaryRow}`;
+          if (worksheet[cellAddress]) {
+            // Make summary bold and add background color
+            worksheet[cellAddress].s = {
+              font: { bold: true },
+              fill: { fgColor: { rgb: "FFE6CC" } },
+              alignment: {
+                horizontal: "left",
+                vertical: "top",
+                wrapText: true,
+              },
+            };
+          }
+        });
+      }
+
+      // Apply text wrapping to all cells
+      const range = XLSX.utils.decode_range(worksheet["!ref"] as string);
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cell_address = { c: C, r: R };
+          const cell_ref = XLSX.utils.encode_cell(cell_address);
+          if (!worksheet[cell_ref]) continue;
+
+          // Ensure wrap text is enabled for all cells
+          if (!worksheet[cell_ref].s) {
+            worksheet[cell_ref].s = {};
+          }
+          if (!worksheet[cell_ref].s.alignment) {
+            worksheet[cell_ref].s.alignment = {};
+          }
+          worksheet[cell_ref].s.alignment.wrapText = true;
+          worksheet[cell_ref].s.alignment.vertical = "top";
+        }
+      }
 
       // Create workbook and add worksheet
       const workbook = XLSX.utils.book_new();
@@ -418,6 +496,14 @@ const Products = () => {
     }
   };
 
+  interface PdfProductData {
+    name: string;
+    category: string;
+    price: number;
+    currentStock: number;
+    itemTotalValue: number;
+  }
+
   const exportToPDF = async () => {
     setIsExporting(true);
     try {
@@ -435,15 +521,41 @@ const Products = () => {
       const exportData = await response.json();
       const products = exportData.products || [];
 
+      // Calculate totals
+      let totalMaterialInStock = 0;
+      let totalValueInStock = 0;
+
+      // Prepare data with calculations
+      const pdfData: PdfProductData[] = products.map(
+        (product: EnrichedProductsResponse) => {
+          const currentStock = product.currentStock || 0;
+          const price = product.price || 0;
+          const itemTotalValue = currentStock * price;
+
+          totalMaterialInStock += currentStock;
+          totalValueInStock += itemTotalValue;
+
+          return {
+            name: product.name,
+            category: product.categoryDetails?.title || "Unknown Category",
+            price: price,
+            currentStock: currentStock,
+            itemTotalValue: itemTotalValue,
+          };
+        }
+      );
+
       const { jsPDF } = await import("jspdf");
       const doc = new jsPDF();
 
-      // Column positions
+      // Column positions and widths
       const COLUMNS = {
-        SERIAL_NO: 10,
-        PRODUCT_NAME: 30,
-        CATEGORY: 120,
-        PRICE: 160,
+        SERIAL_NO: { x: 10, width: 15 },
+        PRODUCT_NAME: { x: 25, width: 70 },
+        CATEGORY: { x: 95, width: 30 },
+        PRICE: { x: 130, width: 25 },
+        STOCK: { x: 150, width: 20 },
+        TOTAL_VALUE: { x: 170, width: 30 },
       };
 
       // Page settings
@@ -451,6 +563,28 @@ const Products = () => {
       const TABLE_HEADER_Y = 35;
       const ROW_HEIGHT = 8;
       const MAX_Y = 280;
+      let currentPage = 1;
+      let yPosition = TABLE_HEADER_Y + 10;
+
+      // Function to split long text into multiple lines
+      const splitText = (text: string, maxWidth: number): string[] => {
+        const words = text.split(" ");
+        const lines: string[] = [];
+        let currentLine = words[0];
+
+        for (let i = 1; i < words.length; i++) {
+          const word = words[i];
+          const width = doc.getTextWidth(currentLine + " " + word);
+          if (width < maxWidth) {
+            currentLine += " " + word;
+          } else {
+            lines.push(currentLine);
+            currentLine = word;
+          }
+        }
+        lines.push(currentLine);
+        return lines;
+      };
 
       // Function to add a complete page header
       const addPageHeader = (pageNumber: number) => {
@@ -472,10 +606,12 @@ const Products = () => {
         // Table headers
         doc.setFontSize(11);
         doc.setFont("bold");
-        doc.text("Sl.No.", COLUMNS.SERIAL_NO, TABLE_HEADER_Y);
-        doc.text("Product Name", COLUMNS.PRODUCT_NAME, TABLE_HEADER_Y);
-        doc.text("Category", COLUMNS.CATEGORY, TABLE_HEADER_Y);
-        doc.text("Price", COLUMNS.PRICE, TABLE_HEADER_Y);
+        doc.text("Sl.No.", COLUMNS.SERIAL_NO.x, TABLE_HEADER_Y);
+        doc.text("Product Name", COLUMNS.PRODUCT_NAME.x, TABLE_HEADER_Y);
+        doc.text("Category", COLUMNS.CATEGORY.x, TABLE_HEADER_Y);
+        doc.text("Price", COLUMNS.PRICE.x, TABLE_HEADER_Y);
+        doc.text("Stock", COLUMNS.STOCK.x, TABLE_HEADER_Y);
+        doc.text("Total Value", COLUMNS.TOTAL_VALUE.x, TABLE_HEADER_Y);
 
         // Header line
         doc.setLineWidth(0.5);
@@ -487,17 +623,14 @@ const Products = () => {
         );
 
         // Reset to data style
-        doc.setFontSize(10);
+        doc.setFontSize(9);
         doc.setFont("normal");
       };
-
-      let currentPage = 1;
-      let yPosition = TABLE_HEADER_Y + 10;
 
       // Add first page header
       addPageHeader(currentPage);
 
-      products.forEach((product: EnrichedProductsResponse, index: number) => {
+      pdfData.forEach((product: PdfProductData, index: number) => {
         // Check if we need a new page
         if (yPosition > MAX_Y) {
           doc.addPage();
@@ -506,24 +639,84 @@ const Products = () => {
           addPageHeader(currentPage);
         }
 
-        // Add row data
         const serialNo = (index + 1).toString();
+        const currentY = yPosition;
 
-        doc.text(serialNo, COLUMNS.SERIAL_NO, yPosition);
-        doc.text(product.name, COLUMNS.PRODUCT_NAME, yPosition);
-        doc.text(
-          product.categoryDetails?.title || "Unknown Category",
-          COLUMNS.CATEGORY,
-          yPosition
-        );
-        doc.text(
-          `Rs. ${product.price?.toLocaleString("en-IN") || 0}`,
-          COLUMNS.PRICE,
-          yPosition
+        // Split long product names into multiple lines
+        const productNameLines = splitText(
+          product.name,
+          COLUMNS.PRODUCT_NAME.width - 5
         );
 
-        yPosition += ROW_HEIGHT;
+        // Calculate the height needed for this row
+        const lineHeight = 4;
+        const rowHeight = Math.max(
+          ROW_HEIGHT,
+          productNameLines.length * lineHeight
+        );
+
+        // Add row data
+        doc.text(serialNo, COLUMNS.SERIAL_NO.x, currentY);
+
+        // Add product name with wrapping
+        productNameLines.forEach((line, lineIndex) => {
+          doc.text(
+            line,
+            COLUMNS.PRODUCT_NAME.x,
+            currentY + lineIndex * lineHeight
+          );
+        });
+
+        doc.text(product.category, COLUMNS.CATEGORY.x, currentY);
+        doc.text(
+          `Rs. ${product.price.toLocaleString("en-IN")}`,
+          COLUMNS.PRICE.x,
+          currentY
+        );
+        doc.text(product.currentStock.toString(), COLUMNS.STOCK.x, currentY);
+        doc.text(
+          `Rs. ${product.itemTotalValue.toLocaleString("en-IN")}`,
+          COLUMNS.TOTAL_VALUE.x,
+          currentY
+        );
+
+        yPosition += rowHeight;
       });
+
+      // Add summary section
+      if (yPosition > MAX_Y - 20) {
+        doc.addPage();
+        currentPage++;
+        yPosition = TABLE_HEADER_Y + 10;
+        addPageHeader(currentPage);
+      }
+
+      // Add empty row before summary
+      yPosition += 10;
+
+      // Summary title
+      doc.setFontSize(11);
+      doc.setFont("bold");
+      doc.text("SUMMARY", COLUMNS.SERIAL_NO.x, yPosition);
+      yPosition += 8;
+
+      // Total Material in Stock
+      doc.setFontSize(10);
+      doc.text("Total Material in Stock :", COLUMNS.SERIAL_NO.x, yPosition);
+      doc.text(totalMaterialInStock.toString(), COLUMNS.CATEGORY.x, yPosition);
+      yPosition += 6;
+
+      // Total Value in Stock
+      doc.text(
+        "Total Value of Material in Stock :",
+        COLUMNS.SERIAL_NO.x,
+        yPosition
+      );
+      doc.text(
+        `Rs. ${totalValueInStock.toLocaleString("en-IN")}`,
+        COLUMNS.CATEGORY.x,
+        yPosition
+      );
 
       doc.save(`products_${new Date().toISOString().split("T")[0]}.pdf`);
       toast.success("Products exported to PDF successfully!");
