@@ -10,7 +10,7 @@ import {
   FiPlus,
   FiPackage,
   FiAlertTriangle,
-  FiDollarSign,
+  FiDownload,
 } from "react-icons/fi";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import CustomLoader from "@/components/common/CustomLoader";
@@ -24,7 +24,7 @@ import { useLowStockProducts, useProductsData } from "@/hooks/use-queries";
 import { EnrichedProductsResponse } from "@/@types/server/response";
 import ProductAdd from "@/components/products/forms/AddProduct";
 import { useCategoriesData } from "@/hooks/use-queries";
-import { Select, Loader } from "@mantine/core";
+import { Select, Loader, Menu, Button } from "@mantine/core";
 import EditProductModal from "@/components/products/modals/EditProductModal/EditProductModal";
 import LowStockAlertModal from "@/components/common/modals/LowStockAlert";
 
@@ -63,6 +63,7 @@ const Products = () => {
   const [offset, setOffset] = useState(0);
   const [limit] = useState(Pagination.limit);
   const [showLowStockAlert, setShowLowStockAlert] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Fetch low stock products
   const { data: lowStockProducts } = useLowStockProducts();
@@ -363,6 +364,177 @@ const Products = () => {
     }
   };
 
+  // Export to Excel function
+  const exportToExcel = async () => {
+    setIsExporting(true);
+    try {
+      const response = await fetch(
+        `/api/products?limit=10000&offset=0&search=${encodeURIComponent(
+          debouncedQueryInput
+        )}&categoryId=${categoryId}&stockFilter=${stockFilter}`
+      );
+
+      if (!response.ok) {
+        console.error("Failed to fetch products for export");
+        return;
+      }
+
+      const exportData = await response.json();
+      const products = exportData.products || [];
+
+      const excelData = products.map(
+        (product: EnrichedProductsResponse, index: number) => ({
+          "Sl.No.": index + 1,
+          "Product Name": product.name,
+          Category: product.categoryDetails?.title || "Unknown Category",
+          "Price (₹)": product.price || 0,
+        })
+      );
+
+      // Create worksheet
+      const XLSX = await import("xlsx");
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+      // Set column widths
+      const columnWidths = [{ wch: 8 }, { wch: 50 }, { wch: 25 }, { wch: 15 }];
+      worksheet["!cols"] = columnWidths;
+
+      // Create workbook and add worksheet
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Products");
+
+      // Generate Excel file and trigger download
+      XLSX.writeFile(
+        workbook,
+        `products_${new Date().toISOString().split("T")[0]}.xlsx`
+      );
+
+      toast.success("Products exported to Excel successfully!");
+    } catch (error) {
+      console.error("Error exporting to Excel:", error);
+      toast.error("Failed to export products to Excel");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const exportToPDF = async () => {
+    setIsExporting(true);
+    try {
+      const response = await fetch(
+        `/api/products?limit=10000&offset=0&search=${encodeURIComponent(
+          debouncedQueryInput
+        )}&categoryId=${categoryId}&stockFilter=${stockFilter}`
+      );
+
+      if (!response.ok) {
+        console.error("Failed to fetch products for export");
+        return;
+      }
+
+      const exportData = await response.json();
+      const products = exportData.products || [];
+
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF();
+
+      // Column positions
+      const COLUMNS = {
+        SERIAL_NO: 10,
+        PRODUCT_NAME: 30,
+        CATEGORY: 120,
+        PRICE: 160,
+      };
+
+      // Page settings
+      const PAGE_MARGIN = 10;
+      const TABLE_HEADER_Y = 35;
+      const ROW_HEIGHT = 8;
+      const MAX_Y = 280;
+
+      // Function to add a complete page header
+      const addPageHeader = (pageNumber: number) => {
+        // Title
+        doc.setFontSize(16);
+        doc.setFont("bold");
+        doc.text("Products List", PAGE_MARGIN, 15);
+
+        // Export date
+        doc.setFontSize(10);
+        doc.setFont("normal");
+        doc.text(
+          `Exported on: ${new Date().toLocaleDateString()}`,
+          PAGE_MARGIN,
+          22
+        );
+        doc.text(`Page: ${pageNumber}`, 180, 22);
+
+        // Table headers
+        doc.setFontSize(11);
+        doc.setFont("bold");
+        doc.text("Sl.No.", COLUMNS.SERIAL_NO, TABLE_HEADER_Y);
+        doc.text("Product Name", COLUMNS.PRODUCT_NAME, TABLE_HEADER_Y);
+        doc.text("Category", COLUMNS.CATEGORY, TABLE_HEADER_Y);
+        doc.text("Price", COLUMNS.PRICE, TABLE_HEADER_Y);
+
+        // Header line
+        doc.setLineWidth(0.5);
+        doc.line(
+          PAGE_MARGIN,
+          TABLE_HEADER_Y + 2,
+          200 - PAGE_MARGIN,
+          TABLE_HEADER_Y + 2
+        );
+
+        // Reset to data style
+        doc.setFontSize(10);
+        doc.setFont("normal");
+      };
+
+      let currentPage = 1;
+      let yPosition = TABLE_HEADER_Y + 10;
+
+      // Add first page header
+      addPageHeader(currentPage);
+
+      products.forEach((product: EnrichedProductsResponse, index: number) => {
+        // Check if we need a new page
+        if (yPosition > MAX_Y) {
+          doc.addPage();
+          currentPage++;
+          yPosition = TABLE_HEADER_Y + 10;
+          addPageHeader(currentPage);
+        }
+
+        // Add row data
+        const serialNo = (index + 1).toString();
+
+        doc.text(serialNo, COLUMNS.SERIAL_NO, yPosition);
+        doc.text(product.name, COLUMNS.PRODUCT_NAME, yPosition);
+        doc.text(
+          product.categoryDetails?.title || "Unknown Category",
+          COLUMNS.CATEGORY,
+          yPosition
+        );
+        doc.text(
+          `Rs. ${product.price?.toLocaleString("en-IN") || 0}`,
+          COLUMNS.PRICE,
+          yPosition
+        );
+
+        yPosition += ROW_HEIGHT;
+      });
+
+      doc.save(`products_${new Date().toISOString().split("T")[0]}.pdf`);
+      toast.success("Products exported to PDF successfully!");
+    } catch (error) {
+      console.error("Error exporting to PDF:", error);
+      toast.error("Failed to export products to PDF");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   useEffect(() => {
     if (data.length > 0) {
       const transformedData = data.map((product) => ({
@@ -374,7 +546,7 @@ const Products = () => {
         gstSlab: String(product.gstSlab),
         unit: product.unit,
         currentStock: String(product.currentStock),
-        price: String(product.price || 0), // Handle missing prices by defaulting to 0
+        price: String(product.price || 0),
         delete: () => handleDelete(product._id.toString()),
       }));
       setTableData(transformedData);
@@ -452,13 +624,44 @@ const Products = () => {
                   />
                 </div>
 
-                <button
-                  className="bg-gradient-to-br from-gray-700 to-gray-400 font-medium text-white rounded-md h-9 text-[18px] cursor-pointer w-full sm:w-[150px] flex items-center justify-center"
-                  onClick={open}
-                >
-                  <FiPlus className="mr-1.5" size={16} />
-                  <span className="text-[14px] font-medium">Add Product</span>
-                </button>
+                <div className="flex gap-2">
+                  {/* Export Menu */}
+                  <Menu shadow="md" width={180} position="bottom-end">
+                    <Menu.Target>
+                      <Button
+                        leftSection={<FiDownload size={16} />}
+                        className="bg-gradient-to-br from-blue-600 to-blue-400 font-medium text-white rounded-md h-9 text-[18px] cursor-pointer !w-[160px] flex items-center justify-center"
+                        loading={isExporting}
+                      >
+                        <span className="text-[14px] font-medium">Export</span>
+                      </Button>
+                    </Menu.Target>
+
+                    <Menu.Dropdown>
+                      <Menu.Label>Export Options</Menu.Label>
+                      <Menu.Item
+                        onClick={exportToExcel}
+                        leftSection={<FiDownload size={14} />}
+                      >
+                        Export as Excel
+                      </Menu.Item>
+                      <Menu.Item
+                        onClick={exportToPDF}
+                        leftSection={<FiDownload size={14} />}
+                      >
+                        Export as PDF
+                      </Menu.Item>
+                    </Menu.Dropdown>
+                  </Menu>
+
+                  <button
+                    className="bg-gradient-to-br from-gray-700 to-gray-400 font-medium text-white rounded-md h-9 text-[18px] cursor-pointer w-full sm:w-[150px] flex items-center justify-center"
+                    onClick={open}
+                  >
+                    <FiPlus className="mr-1.5" size={16} />
+                    <span className="text-[14px] font-medium">Add Product</span>
+                  </button>
+                </div>
               </div>
 
               <CustomModal
