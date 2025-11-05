@@ -111,6 +111,14 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     if (data.price !== undefined) updateData.price = data.price;
     if (data.hsnCode !== undefined) updateData.hsnCode = data.hsnCode;
     if (data.unit !== undefined) updateData.unit = data.unit;
+    if (data.quantity !== undefined) updateData.currentStock = data.quantity;
+    if (data.hasSubUnit !== undefined) updateData.hasSubUnit = data.hasSubUnit;
+
+    if (data.hasSubUnit) {
+      if (data.subUnit !== undefined) updateData.subUnit = data.subUnit;
+    } else {
+      updateData.subUnit = undefined;
+    }
 
     const updateResult = await productsCollection.updateOne(
       { _id: new ObjectId(id) },

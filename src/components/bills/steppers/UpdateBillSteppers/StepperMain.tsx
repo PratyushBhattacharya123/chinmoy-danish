@@ -15,7 +15,9 @@ import {
 } from "react-hook-form";
 import { UpdateBill } from "@/@types";
 import AddOnsStep from "./AddOnsStep";
-import { ProductPriceMap } from "../AddBillSteppers/StepperMain";
+import { QueryObserverResult, RefetchOptions } from "@tanstack/react-query";
+import { EnrichedProductsResponse } from "@/@types/server/response";
+import { ProductPriceMap } from "@/app/operator/bills/invoices/add-invoice/page";
 
 type Props = {
   register: UseFormRegister<UpdateBill>;
@@ -28,7 +30,73 @@ type Props = {
   type: "invoices" | "proforma-invoices";
   containerRef: React.RefObject<HTMLDivElement | null>;
   setProductPrices: React.Dispatch<React.SetStateAction<ProductPriceMap>>;
-  getItemPrice: (index: number) => number;
+  getItemPrice: (
+    item:
+      | {
+          productId: string;
+          quantity: number;
+          discountPercentage?: number | undefined;
+          isSubUnit?: boolean | undefined;
+        }
+      | undefined,
+    index: number
+  ) => number;
+  products: {
+    _id: string;
+    name: string;
+    price: number;
+    unit: string;
+    hasSubUnit?: boolean | undefined;
+    subUnit?:
+      | {
+          unit: string;
+          conversionRate: number;
+        }
+      | undefined;
+  }[];
+  calculateItemTotal: (
+    item:
+      | {
+          productId: string;
+          quantity: number;
+          discountPercentage?: number | undefined;
+          isSubUnit?: boolean | undefined;
+        }
+      | undefined,
+    index: number
+  ) => number;
+  calculateBaseAmount: (
+    item:
+      | {
+          productId: string;
+          quantity: number;
+          discountPercentage?: number | undefined;
+          isSubUnit?: boolean | undefined;
+        }
+      | undefined,
+    index: number
+  ) => number;
+  getDiscountAmount: (
+    item:
+      | {
+          productId: string;
+          quantity: number;
+          discountPercentage?: number | undefined;
+          isSubUnit?: boolean | undefined;
+        }
+      | undefined,
+    index: number
+  ) => number;
+  refetchProducts: (options?: RefetchOptions | undefined) => Promise<
+    QueryObserverResult<
+      {
+        products: EnrichedProductsResponse[];
+        count: number;
+      },
+      Error
+    >
+  >;
+  isLoading: boolean;
 };
 
 const StepperMain = ({
@@ -43,6 +111,12 @@ const StepperMain = ({
   containerRef,
   setProductPrices,
   getItemPrice,
+  products,
+  calculateBaseAmount,
+  calculateItemTotal,
+  getDiscountAmount,
+  refetchProducts,
+  isLoading,
 }: Props) => {
   const [activeStep, setActiveStep] = useState(0);
 
@@ -113,6 +187,11 @@ const StepperMain = ({
             containerRef={containerRef}
             setProductPrices={setProductPrices}
             getItemPrice={getItemPrice}
+            products={products}
+            calculateItemTotal={calculateItemTotal}
+            getDiscountAmount={getDiscountAmount}
+            refetchProducts={refetchProducts}
+            isLoading={isLoading}
           />
         )}
       </Stepper.Step>
@@ -130,7 +209,9 @@ const StepperMain = ({
             errors={errors}
             setActiveStep={setActiveStep}
             containerRef={containerRef}
-            getItemPrice={getItemPrice}
+            calculateItemTotal={calculateItemTotal}
+            calculateBaseAmount={calculateBaseAmount}
+            getDiscountAmount={getDiscountAmount}
           />
         )}
       </Stepper.Step>
@@ -143,7 +224,10 @@ const StepperMain = ({
           isPending={isPending}
           containerRef={containerRef}
           type={type}
-          getItemPrice={getItemPrice}
+          calculateItemTotal={calculateItemTotal}
+          calculateBaseAmount={calculateBaseAmount}
+          getDiscountAmount={getDiscountAmount}
+          products={products}
         />
       </Stepper.Completed>
     </Stepper>

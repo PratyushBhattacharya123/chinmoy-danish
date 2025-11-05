@@ -190,35 +190,66 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Get all products involved in this stock entry
+    const productIds = existingStock.items.map((item) => item.productId);
+    const products = await productsCollection
+      .find({
+        _id: { $in: productIds },
+      })
+      .toArray();
+
+    // Create a map for quick product lookup
+    const productMap = new Map();
+    products.forEach((product) => {
+      productMap.set(product._id.toString(), product);
+    });
+
     // Revert product stock changes before deleting the stock entry
     for (const item of existingStock.items) {
-      const product = await productsCollection.findOne({
-        _id: item.productId,
-      });
+      const product = productMap.get(item.productId.toString());
 
       if (product) {
+        let effectiveQuantity = item.quantity;
+
+        // Convert subunit quantity to main unit quantity for reversion
+        if (item.isSubUnit && product.subUnit) {
+          effectiveQuantity = item.quantity / product.subUnit.conversionRate;
+        }
+
         let revertedStock = product.currentStock;
 
-        // Reverse the stock change
+        // Reverse the stock change with effective quantity
         if (existingStock.type === "IN") {
-          revertedStock -= item.quantity; // Remove what was added
+          revertedStock -= effectiveQuantity; // Remove what was added
         } else if (existingStock.type === "OUT") {
-          revertedStock += item.quantity; // Add back what was removed
+          revertedStock += effectiveQuantity; // Add back what was removed
         }
         // For ADJUSTMENT, we can't reliably revert without knowing the original value
         // So we'll skip reverting and just delete the record
 
         if (existingStock.type !== "ADJUSTMENT") {
+          // Ensure stock doesn't go negative
+          if (revertedStock < 0) {
+            console.warn(
+              `Stock reversion would make product ${product.name} negative. Clamping to 0.`
+            );
+            revertedStock = 0;
+          }
+
           await productsCollection.updateOne(
             { _id: item.productId },
             {
               $set: {
-                currentStock: Math.max(0, revertedStock), // Ensure non-negative
+                currentStock: revertedStock,
                 updatedAt: new Date(),
               },
             }
           );
         }
+      } else {
+        console.warn(
+          `Product not found for stock reversion: ${item.productId}`
+        );
       }
     }
 

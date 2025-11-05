@@ -58,6 +58,7 @@ const ImportModalAdd = ({ opened, close, setValue }: Props) => {
         billData.items.map((item) => ({
           productId: item.productDetails?._id.toString() || "",
           quantity: item.quantity,
+          isSubUnit: item.isSubUnit,
         }))
       );
       setValue("type", "OUT");

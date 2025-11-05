@@ -1,6 +1,7 @@
 "use client";
 
 import { EnrichedItemStocks } from "@/@types/server/response";
+import { capitalize } from "@/components/utils/helper";
 import { ContextModalProps } from "@mantine/modals";
 import React from "react";
 import {
@@ -25,6 +26,52 @@ const StockItemsModalContent = ({
 }>) => {
   const { items, stockType, totalQuantity, notes, createdAt, createdBy } =
     innerProps;
+
+  // Helper function to get unit display
+  const getUnitDisplay = (item: EnrichedItemStocks): string => {
+    if (!item.productDetails) return "";
+
+    // If it's a subunit transaction, show subunit
+    if (item.isSubUnit && item.productDetails.subUnit) {
+      return item.productDetails.subUnit.unit;
+    }
+
+    // Otherwise show main unit
+    return item.productDetails.unit;
+  };
+
+  // Helper function to capitalize unit names
+  const capitalizeUnit = (unit: string): string => {
+    const unitMap: { [key: string]: string } = {
+      pcs: "Pieces",
+      boxes: "Boxes",
+      pipes: "Pipes",
+      rolls: "Rolls",
+      bags: "Bags",
+      feets: "Feets",
+      mtrs: "Metres",
+    };
+    return unitMap[unit] || capitalize(unit);
+  };
+
+  // Calculate effective quantity (convert subunit to main unit for display context)
+  const getEffectiveQuantity = (item: EnrichedItemStocks): number => {
+    if (item.isSubUnit && item.productDetails?.subUnit) {
+      return item.quantity / item.productDetails.subUnit.conversionRate;
+    }
+    return item.quantity;
+  };
+
+  // Get conversion info for display
+  const getConversionInfo = (item: EnrichedItemStocks) => {
+    if (!item.isSubUnit || !item.productDetails?.subUnit) return null;
+
+    return {
+      mainUnit: item.productDetails.unit,
+      subUnit: item.productDetails.subUnit.unit,
+      rate: item.productDetails.subUnit.conversionRate,
+    };
+  };
 
   const getTypeStyles = () => {
     switch (stockType) {
@@ -75,6 +122,13 @@ const StockItemsModalContent = ({
     });
   };
 
+  // Calculate totals
+  const itemsWithSubUnits = items.filter((item) => item.isSubUnit).length;
+  const totalEffectiveQuantity = items.reduce(
+    (sum, item) => sum + getEffectiveQuantity(item),
+    0
+  );
+
   return (
     <div className="bg-white">
       {/* Header Summary */}
@@ -88,7 +142,7 @@ const StockItemsModalContent = ({
               {getTypeDisplay()}
             </span>
             <div className="text-sm text-gray-600">
-              Updated by:{" "}
+              Updated by :{" "}
               <span className="font-medium text-gray-700">{createdBy}</span>
             </div>
           </div>
@@ -98,7 +152,7 @@ const StockItemsModalContent = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
           <div className="text-center">
             <div className="text-xs md:text-sm font-semibold text-gray-700">
               Products
@@ -109,7 +163,7 @@ const StockItemsModalContent = ({
           </div>
           <div className="text-center">
             <div className="text-xs md:text-sm font-semibold text-gray-700">
-              Total Quantity
+              Total Qty
             </div>
             <div className="text-lg md:text-2xl font-bold text-gray-700 mt-1">
               {totalQuantity}
@@ -119,16 +173,8 @@ const StockItemsModalContent = ({
             <div className="text-xs md:text-sm font-semibold text-gray-700">
               Stock Type
             </div>
-            <div className="text-lg md:text-2xl font-bold text-gray-700 mt-1 capitalize">
-              {stockType.toLowerCase()}
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="text-xs md:text-sm font-semibold text-gray-700">
-              Status
-            </div>
             <div className="text-lg md:text-2xl font-bold text-gray-700 mt-1">
-              Completed
+              {stockType}
             </div>
           </div>
         </div>
@@ -148,10 +194,13 @@ const StockItemsModalContent = ({
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             {/* Desktop Header */}
             <div className="hidden md:grid md:grid-cols-12 gap-4 px-4 py-3 bg-gradient-to-r from-gray-700 to-gray-600 text-white font-semibold text-sm">
-              <div className="col-span-6 flex items-center gap-2">
+              <div className="col-span-5 flex items-center gap-2">
                 <span>Product</span>
               </div>
-              <div className="col-span-3 flex items-center justify-center">
+              <div className="col-span-2 flex items-center justify-center">
+                <span>Unit</span>
+              </div>
+              <div className="col-span-2 flex items-center justify-center">
                 <span>Current Stock</span>
               </div>
               <div className="col-span-3 flex items-center justify-center">
@@ -161,8 +210,11 @@ const StockItemsModalContent = ({
 
             {/* Mobile Header */}
             <div className="md:hidden grid grid-cols-12 gap-2 px-3 py-2 bg-gradient-to-r from-gray-700 to-gray-600 text-white font-semibold text-xs">
-              <div className="col-span-7 flex items-center gap-1">
+              <div className="col-span-5 flex items-center gap-1">
                 <span>Product</span>
+              </div>
+              <div className="col-span-2 flex items-center justify-center">
+                <span>Unit</span>
               </div>
               <div className="col-span-2 flex items-center justify-center">
                 <span>Stock</span>
@@ -173,90 +225,136 @@ const StockItemsModalContent = ({
             </div>
 
             <div className="divide-y divide-gray-100 max-h-48 md:max-h-60 overflow-y-auto">
-              {items.map((item, index) => (
-                <div key={index}>
-                  {/* Desktop View */}
-                  <div className="hidden md:grid md:grid-cols-12 gap-4 px-4 py-3 hover:bg-gray-50 transition-colors duration-150">
-                    <div className="col-span-6">
-                      <div className="font-medium text-gray-900 text-sm">
-                        {item.productDetails?.name || "Unknown Product"}
-                      </div>
-                    </div>
-                    <div className="col-span-3 flex items-center justify-center">
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm font-medium border ${
-                          item.productDetails?.currentStock &&
-                          item.productDetails.currentStock < 10
-                            ? "bg-red-100 text-red-800 border-red-200"
-                            : "bg-green-100 text-green-800 border-green-200"
-                        }`}
-                      >
-                        {item.productDetails?.currentStock || 0}
-                      </span>
-                    </div>
-                    <div className="col-span-3 flex items-center justify-center">
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm font-medium border ${
-                          stockType === "IN"
-                            ? "bg-green-100 text-green-800 border-green-200"
-                            : stockType === "OUT"
-                            ? "bg-red-100 text-red-800 border-red-200"
-                            : "bg-blue-100 text-blue-800 border-blue-200"
-                        }`}
-                      >
-                        {stockType === "IN"
-                          ? "+"
-                          : stockType === "OUT"
-                          ? "-"
-                          : ""}
-                        {item.quantity}
-                      </span>
-                    </div>
-                  </div>
+              {items.map((item, index) => {
+                const unitDisplay = getUnitDisplay(item);
+                const capitalizedUnit = capitalizeUnit(unitDisplay);
+                const isSubUnit =
+                  item.isSubUnit && item.productDetails?.subUnit;
+                const conversionInfo = getConversionInfo(item);
+                const effectiveQuantity = getEffectiveQuantity(item);
 
-                  {/* Mobile View */}
-                  <div className="md:hidden grid grid-cols-12 gap-2 px-3 py-2 hover:bg-gray-50 transition-colors duration-150">
-                    <div className="col-span-7">
-                      <div className="font-medium text-gray-900 text-xs">
-                        {item.productDetails?.name || "Unknown Product"}
+                return (
+                  <div key={index}>
+                    {/* Desktop View */}
+                    <div className="hidden md:grid md:grid-cols-12 gap-4 px-4 py-3 hover:bg-gray-50 transition-colors duration-150">
+                      <div className="col-span-5">
+                        <div className="font-medium text-gray-900 text-sm">
+                          {item.productDetails?.name || "Unknown Product"}
+                        </div>
+                        {isSubUnit && conversionInfo && (
+                          <div className="text-xs text-blue-600 mt-0.5">
+                            1 {conversionInfo.mainUnit} = {conversionInfo.rate}{" "}
+                            {conversionInfo.subUnit}
+                          </div>
+                        )}
                       </div>
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        Stock: {item.productDetails?.currentStock || 0}
+                      <div className="col-span-2 flex flex-col items-center justify-center">
+                        <span className="text-sm font-medium text-gray-700">
+                          {capitalizedUnit}
+                        </span>
                       </div>
-                    </div>
-                    <div className="col-span-2 flex items-center justify-center">
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-xs font-medium border ${
-                          item.productDetails?.currentStock &&
-                          item.productDetails.currentStock < 10
-                            ? "bg-red-100 text-red-800 border-red-200"
-                            : "bg-green-100 text-green-800 border-green-200"
-                        }`}
-                      >
-                        {item.productDetails?.currentStock || 0}
-                      </span>
-                    </div>
-                    <div className="col-span-3 flex items-center justify-center">
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-xs font-medium border ${
-                          stockType === "IN"
-                            ? "bg-green-100 text-green-800 border-green-200"
+                      <div className="col-span-2 flex  flex-col items-center justify-center">
+                        <span
+                          className={`px-3 py-1 rounded-full text-sm font-medium border ${
+                            item.productDetails?.currentStock &&
+                            item.productDetails.currentStock < 10
+                              ? "bg-red-100 text-red-800 border-red-200"
+                              : "bg-green-100 text-green-800 border-green-200"
+                          }`}
+                        >
+                          {item.productDetails?.currentStock.toFixed(2) || 0}
+                        </span>
+                        {isSubUnit && (
+                          <span className="text-xs text-blue-600 mt-0.5 capitalize">
+                            {item.productDetails.unit}
+                          </span>
+                        )}
+                      </div>
+                      <div className="col-span-3 flex flex-col items-center justify-center gap-1">
+                        <span
+                          className={`px-3 py-1 rounded-full text-sm font-medium border ${
+                            stockType === "IN"
+                              ? "bg-green-100 text-green-800 border-green-200"
+                              : stockType === "OUT"
+                              ? "bg-red-100 text-red-800 border-red-200"
+                              : "bg-blue-100 text-blue-800 border-blue-200"
+                          }`}
+                        >
+                          {stockType === "IN"
+                            ? "+"
                             : stockType === "OUT"
-                            ? "bg-red-100 text-red-800 border-red-200"
-                            : "bg-blue-100 text-blue-800 border-blue-200"
-                        }`}
-                      >
-                        {stockType === "IN"
-                          ? "+"
-                          : stockType === "OUT"
-                          ? "-"
-                          : ""}
-                        {item.quantity}
-                      </span>
+                            ? "-"
+                            : ""}
+                          {item.quantity} {capitalizedUnit}
+                        </span>
+                        {isSubUnit && (
+                          <div className="text-xs text-gray-500 text-center">
+                            ({effectiveQuantity.toFixed(2)}{" "}
+                            {item.productDetails?.unit})
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Mobile View */}
+                    <div className="md:hidden grid grid-cols-12 gap-2 px-3 py-2 hover:bg-gray-50 transition-colors duration-150">
+                      <div className="col-span-5">
+                        <div className="font-medium text-gray-900 text-xs">
+                          {item.productDetails?.name || "Unknown Product"}
+                        </div>
+                        {isSubUnit && conversionInfo && (
+                          <div className="text-xs text-blue-600 mt-0.5">
+                            1:{conversionInfo.rate}
+                          </div>
+                        )}
+                      </div>
+                      <div className="col-span-2 flex flex-col items-center justify-center">
+                        <span className="text-xs font-medium text-gray-700">
+                          {capitalizedUnit}
+                        </span>
+                        {isSubUnit && (
+                          <span className="text-xs text-blue-600">(sub)</span>
+                        )}
+                      </div>
+                      <div className="col-span-2 flex items-center justify-center">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium border ${
+                            item.productDetails?.currentStock &&
+                            item.productDetails.currentStock < 10
+                              ? "bg-red-100 text-red-800 border-red-200"
+                              : "bg-green-100 text-green-800 border-green-200"
+                          }`}
+                        >
+                          {item.productDetails?.currentStock || 0}
+                        </span>
+                      </div>
+                      <div className="col-span-3 flex flex-col items-center justify-center">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium border ${
+                            stockType === "IN"
+                              ? "bg-green-100 text-green-800 border-green-200"
+                              : stockType === "OUT"
+                              ? "bg-red-100 text-red-800 border-red-200"
+                              : "bg-blue-100 text-blue-800 border-blue-200"
+                          }`}
+                        >
+                          {stockType === "IN"
+                            ? "+"
+                            : stockType === "OUT"
+                            ? "-"
+                            : ""}
+                          {item.quantity}
+                        </span>
+                        {isSubUnit && (
+                          <div className="text-xs text-gray-500 text-center mt-0.5">
+                            {effectiveQuantity.toFixed(1)}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -278,11 +376,17 @@ const StockItemsModalContent = ({
         <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
           <div className="space-y-2">
             <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-700">Total Products Updated:</span>
+              <span className="text-gray-700">Total Products Updated :</span>
               <span className="font-medium text-gray-700">{items.length}</span>
             </div>
             <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-700">Total Quantity Changed:</span>
+              <span className="text-gray-700">Items with Sub Units :</span>
+              <span className="font-medium text-gray-700">
+                {itemsWithSubUnits}
+              </span>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-700">Total Quantity Changed :</span>
               <span
                 className={`font-medium ${
                   stockType === "IN"
@@ -296,8 +400,16 @@ const StockItemsModalContent = ({
                 {totalQuantity}
               </span>
             </div>
+            {itemsWithSubUnits > 0 && (
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-700">Effective Main Units :</span>
+                <span className="font-medium text-gray-700">
+                  {totalEffectiveQuantity.toFixed(2)}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-700">Update Type:</span>
+              <span className="text-gray-700">Update Type :</span>
               <span
                 className={`font-medium capitalize ${
                   stockType === "IN"

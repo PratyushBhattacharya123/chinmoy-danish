@@ -17,7 +17,33 @@ type Props = {
   errors: FieldErrors<AddBill>;
   setActiveStep: React.Dispatch<React.SetStateAction<number>>;
   containerRef: React.RefObject<HTMLDivElement | null>;
-  getItemPrice: (index: number) => number;
+  calculateItemTotal: (
+    item: {
+      productId: string;
+      quantity: number;
+      discountPercentage?: number | undefined;
+      isSubUnit?: boolean | undefined;
+    },
+    index: number
+  ) => number;
+  calculateBaseAmount: (
+    item: {
+      productId: string;
+      quantity: number;
+      discountPercentage?: number | undefined;
+      isSubUnit?: boolean | undefined;
+    },
+    index: number
+  ) => number;
+  getDiscountAmount: (
+    item: {
+      productId: string;
+      quantity: number;
+      discountPercentage?: number | undefined;
+      isSubUnit?: boolean | undefined;
+    },
+    index: number
+  ) => number;
 };
 
 const AddOnsStep = ({
@@ -26,7 +52,9 @@ const AddOnsStep = ({
   errors,
   setActiveStep,
   containerRef,
-  getItemPrice,
+  calculateItemTotal,
+  calculateBaseAmount,
+  getDiscountAmount,
 }: Props) => {
   useLayoutEffect(() => {
     if (containerRef && containerRef.current) {
@@ -46,36 +74,16 @@ const AddOnsStep = ({
   const addOns = watch("addOns") || [];
   const items = watch("items") || [];
 
-  // Calculate item totals with discount
-  const calculateItemTotal = (
-    item: {
-      productId: string;
-      quantity: number;
-      discountPercentage?: number;
-    },
-    index: number
-  ) => {
-    const baseAmount = (item.quantity || 0) * getItemPrice(index);
-    const discountAmount = item.discountPercentage
-      ? (baseAmount * (item.discountPercentage || 0)) / 100
-      : 0;
-
-    return Math.max(0, baseAmount - discountAmount);
-  };
-
   // Calculate totals
   const itemsSubtotal = items.reduce(
-    (sum, item, index) => sum + item.quantity * getItemPrice(index),
+    (sum, item, index) => sum + calculateBaseAmount(item, index),
     0
   );
 
-  const totalDiscount = items.reduce((sum, item, index) => {
-    const baseAmount = (item.quantity || 0) * getItemPrice(index);
-    const discountAmount = item.discountPercentage
-      ? (baseAmount * (item.discountPercentage || 0)) / 100
-      : 0;
-    return sum + discountAmount;
-  }, 0);
+  const totalDiscount = items.reduce(
+    (sum, item, index) => sum + getDiscountAmount(item, index),
+    0
+  );
 
   const itemsTotal = items.reduce(
     (sum, item, index) => sum + calculateItemTotal(item, index),

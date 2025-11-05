@@ -113,12 +113,12 @@ const LowStockAlertModal = ({
                     )}`}
                   >
                     <span className="hidden sm:inline">
-                      {getStockLevelText(product.currentStock)}:{" "}
+                      {getStockLevelText(product.currentStock)} :{" "}
                     </span>
                     <span className="sm:hidden">
-                      {getStockLevelText(product.currentStock).split(" ")[0]}:{" "}
+                      {getStockLevelText(product.currentStock).split(" ")[0]} :{" "}
                     </span>
-                    {product.currentStock}
+                    {product.currentStock ? product.currentStock.toFixed(2) : 0}
                   </span>
                 </div>
               </div>

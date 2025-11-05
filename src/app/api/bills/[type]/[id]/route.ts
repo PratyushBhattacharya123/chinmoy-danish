@@ -151,6 +151,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
           items: {
             quantity: 1,
             discountPercentage: 1,
+            isSubUnit: 1,
             productDetails: {
               _id: 1,
               name: 1,
@@ -158,6 +159,11 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
               gstSlab: 1,
               price: 1,
               unit: 1,
+              hasSubUnit: 1,
+              subUnit: {
+                unit: 1,
+                conversionRate: 1,
+              },
               categoryDetails: {
                 _id: 1,
                 title: 1,
@@ -349,6 +355,9 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
           quantity: item.quantity,
           price: Number(product?.price) || 0,
           discountPercentage: item.discountPercentage,
+          conversion: item.isSubUnit
+            ? Number(product?.subUnit?.conversionRate)
+            : undefined,
         };
       });
 

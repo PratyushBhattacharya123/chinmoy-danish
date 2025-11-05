@@ -42,12 +42,15 @@ export const calculateTotalAmount = (
   itemsWithPrices: {
     quantity: number;
     price: number;
-    discountPercentage: number | undefined;
+    discountPercentage?: number;
+    conversion?: number;
   }[],
   addOns?: AddOn[]
 ) => {
   const itemsTotal = itemsWithPrices.reduce((total, item) => {
-    const baseAmount = item.quantity * item.price;
+    const baseAmount =
+      item.quantity *
+      (item?.conversion ? item.price / item.conversion : item.price);
     const discountAmount = item.discountPercentage
       ? (baseAmount * item.discountPercentage) / 100
       : 0;
@@ -150,7 +153,7 @@ import { Collection } from "mongodb";
 // Helper function to apply new stock changes
 export async function applyStockChanges(
   type: "IN" | "OUT" | "ADJUSTMENT",
-  items: Array<{ productId: string; quantity: number }>,
+  items: Array<{ productId: string; quantity: number; isSubUnit?: boolean }>,
   existingProducts: ProductsResponse[],
   productsCollection: Collection<ProductsResponse>
 ) {
@@ -161,14 +164,21 @@ export async function applyStockChanges(
 
     if (!product) continue;
 
+    let effectiveQuantity = item.quantity;
+
+    // Convert subunit quantity to main unit quantity
+    if (item.isSubUnit && product.subUnit) {
+      effectiveQuantity = item.quantity / product.subUnit.conversionRate;
+    }
+
     let newStock = product.currentStock;
     if (type === "IN") {
-      newStock += item.quantity;
+      newStock += effectiveQuantity;
     } else if (type === "OUT") {
-      newStock -= item.quantity;
+      newStock -= effectiveQuantity;
     } else {
-      // ADJUSTMENT - set directly to the quantity provided
-      newStock = item.quantity;
+      // ADJUSTMENT - set directly to the effective quantity
+      newStock = effectiveQuantity;
     }
 
     await productsCollection.updateOne(

@@ -226,6 +226,7 @@ const Stocks = () => {
         });
         queryClient.invalidateQueries({ queryKey: ["stocks"] });
         queryClient.invalidateQueries({ queryKey: ["products"] });
+        queryClient.invalidateQueries({ queryKey: ["low-stock-products"] });
         return response.json();
       }
     },

@@ -38,6 +38,8 @@ export interface ProductDataType {
   unit: string;
   currentStock: string;
   price: string;
+  hasSubUnit: string;
+  subUnit: string;
   delete: () => void;
 }
 
@@ -252,7 +254,7 @@ const Products = () => {
     columnHelper.accessor("currentStock", {
       id: "currentStock",
       cell: (info) => {
-        const stockValue = info.getValue();
+        const stockValue = Number(info.getValue()).toFixed(2);
         const config = getStockDisplayConfig(Number(stockValue));
         const IconComponent = config.icon;
 
@@ -275,6 +277,30 @@ const Products = () => {
         </span>
       ),
       header: () => "Unit",
+    }),
+    columnHelper.accessor("subUnit", {
+      id: "subUnit",
+      cell: (info) => {
+        const subUnitStr = info.getValue();
+        if (!subUnitStr || subUnitStr === '""') return "-";
+
+        try {
+          const subUnit = JSON.parse(subUnitStr);
+
+          console.log({ subUnit });
+          return (
+            <div className="text-xs text-gray-600">
+              <div>
+                1 {info.row.original.unit} = {subUnit.conversionRate}{" "}
+                {subUnit.unit}
+              </div>
+            </div>
+          );
+        } catch {
+          return "-";
+        }
+      },
+      header: () => "Sub Unit Details",
     }),
     columnHelper.display({
       id: "actions",
@@ -810,6 +836,8 @@ const Products = () => {
         unit: product.unit,
         currentStock: String(product.currentStock),
         price: String(product.price || 0),
+        hasSubUnit: product.hasSubUnit ? String(product.hasSubUnit) : "",
+        subUnit: product.subUnit ? JSON.stringify(product.subUnit) : "",
         delete: () => handleDelete(product._id.toString()),
       }));
       setTableData(transformedData);

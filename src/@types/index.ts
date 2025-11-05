@@ -106,33 +106,79 @@ export const addCategorySchema = z.object({
 
 export type AddCategory = z.infer<typeof addCategorySchema>;
 
-const addProductSchema = z.object({
-  name: z
-    .string()
-    .min(1, "Product name is required")
-    .max(100, "Product name must be less than 100 characters")
-    .trim(),
+const addProductSchema = z
+  .object({
+    name: z
+      .string()
+      .min(1, "Product name is required")
+      .max(100, "Product name must be less than 100 characters")
+      .trim(),
 
-  hsnCode: z
-    .string()
-    .min(1, "HSN code is required")
-    .regex(hsnCodeRegex, "HSN code must be 4-8 digits")
-    .trim(),
+    hsnCode: z
+      .string()
+      .min(1, "HSN code is required")
+      .regex(hsnCodeRegex, "HSN code must be 4-8 digits")
+      .trim(),
 
-  gstSlab: z
-    .number()
-    .min(1, "GST number must be atleast 1")
-    .max(18, "GST number cannot exceed 18"),
+    gstSlab: z
+      .number()
+      .min(1, "GST number must be atleast 1")
+      .max(18, "GST number cannot exceed 18"),
 
-  price: z.number().min(0, "Price cannot be negative"),
+    price: z.number().min(0, "Price cannot be negative"),
 
-  categoryId: z.string().min(1, "Category ID is required"),
+    quantity: z.number().optional(),
 
-  unit: z
-    .enum(["pcs", "boxes", "bags", "rolls"])
-    .default("pcs")
-    .transform((val) => val || "pcs"),
-});
+    categoryId: z.string().min(1, "Category ID is required"),
+
+    unit: z
+      .enum(["pcs", "boxes", "pipes", "rolls"])
+      .default("pcs")
+      .transform((val) => val || "pcs"),
+
+    hasSubUnit: z.boolean().default(false).optional(),
+
+    subUnit: z
+      .object({
+        unit: z.enum(["pcs", "feets", "mtrs"]),
+        conversionRate: z
+          .number()
+          .min(0.001, "Conversion rate must be greater than 0"),
+      })
+      .optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.hasSubUnit) {
+        return data.subUnit?.unit && data.subUnit?.conversionRate;
+      }
+      return true;
+    },
+    {
+      message: "Subunit configuration is required when hasSubUnit is enabled",
+      path: ["subUnit"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (data.hasSubUnit && data.subUnit) {
+        const validSubUnits: Record<string, string[]> = {
+          boxes: ["pcs"],
+          pipes: ["feets"],
+          rolls: ["mtrs"],
+          pcs: [],
+        };
+
+        const allowedSubUnits = validSubUnits[data.unit];
+        return allowedSubUnits.includes(data.subUnit.unit!);
+      }
+      return true;
+    },
+    {
+      message: "Invalid subunit for the selected main unit",
+      path: ["subUnit", "unit"],
+    }
+  );
 
 export const productFormSchema = addProductSchema.required({
   unit: true,
@@ -162,12 +208,13 @@ export type UpdateProduct = z.infer<typeof updateProductSchema>;
 
 export const itemSchema = z.object({
   productId: z.string().min(1, "Product ID is required"),
-  quantity: z.number().min(1, "Quantity must be at least 1"),
+  quantity: z.number().min(0, "Quantity cannot be negative"),
   discountPercentage: z
     .number()
     .min(0, "Discount percentage cannot be negative")
     .max(100, "Discount percentage cannot exceed 100")
     .optional(),
+  isSubUnit: z.boolean().default(false).optional(),
 });
 
 export type Item = z.infer<typeof itemSchema>;
@@ -251,6 +298,7 @@ export const stockSchema = z.object({
       z.object({
         productId: z.string().min(1, "Product ID is required"),
         quantity: z.number().min(1, "Quantity is required"),
+        isSubUnit: z.boolean().default(false).optional(),
       })
     )
     .min(1, "At least one stock update required"),

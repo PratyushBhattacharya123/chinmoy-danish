@@ -36,6 +36,7 @@ interface ItemBreakup {
 }
 
 const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
+  console.log({ billData });
   const [partyDetails, setPartyDetails] = useState<PartyDetailsResponse>();
   const [items, setItems] = useState<EnrichedItem[]>([]);
   const [addOns, setAddOns] = useState<AddOn[]>([]);
@@ -74,6 +75,8 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
 
     return [...regularItems, ...addOnItems];
   }, [items, addOns]);
+
+  console.log({ allLineItems });
 
   // Calculate items per page - last page gets only 3 items for footer space
   const calculateItemsPerPage = (
@@ -138,7 +141,10 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
 
       // Calculate for regular items (with GST)
       items.forEach((item) => {
-        const unitPrice = item.productDetails?.price || 0;
+        const unitPrice = item.productDetails?.hasSubUnit
+          ? item.productDetails?.price /
+              (item.productDetails.subUnit?.conversionRate || 1) || 0
+          : item.productDetails?.price || 0;
         const quantity = item.quantity;
         const discountPercentage = item.discountPercentage || 0;
         const gstSlab = item.productDetails?.gstSlab || 18;
@@ -209,7 +215,10 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
     }
 
     // Regular product with GST
-    const unitPrice = item.productDetails?.price || 0;
+    const unitPrice = item.productDetails?.hasSubUnit
+      ? item.productDetails?.price /
+          (item.productDetails.subUnit?.conversionRate || 1) || 0
+      : item.productDetails?.price || 0;
     const quantity = item.quantity;
     const discountPercentage = item.discountPercentage || 0;
     const gstSlab = item.productDetails?.gstSlab || 18;
@@ -511,6 +520,8 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                   >
                     {isAddOn
                       ? ""
+                      : item.productDetails?.hasSubUnit
+                      ? capitalize(item.productDetails.subUnit?.unit || "pcs")
                       : capitalize(item.productDetails?.unit || "pcs")}
                   </td>
                   <td

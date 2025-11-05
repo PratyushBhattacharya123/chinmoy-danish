@@ -18,15 +18,22 @@ export interface CategoriesResponse {
   title: string;
 }
 
+export interface SubUnit {
+  unit: "pcs" | "feets" | "mtrs";
+  conversionRate: number;
+}
+
 export interface ProductsResponse {
   _id: ObjectId;
   categoryId: ObjectId;
   name: string;
   hsnCode: string;
   gstSlab: number;
-  unit: "pcs" | "boxes" | "bags" | "rolls";
+  unit: "pcs" | "boxes" | "pipes" | "rolls";
   price: number;
   currentStock: number;
+  hasSubUnit?: boolean;
+  subUnit?: SubUnit;
 }
 
 export interface EnrichedProductsResponse
@@ -38,6 +45,7 @@ export interface Item {
   productId: ObjectId;
   quantity: number;
   discountPercentage?: number;
+  isSubUnit?: boolean;
 }
 
 export interface SupplyDetails {
@@ -72,6 +80,8 @@ export interface EnrichedItem extends Omit<Item, "productId"> {
     gstSlab: 5 | 18;
     unit: "pcs" | "boxes" | "bags" | "rolls";
     price: number;
+    hasSubUnit?: boolean;
+    subUnit?: SubUnit;
     categoryDetails: {
       _id: ObjectId;
       title: string;
@@ -98,6 +108,7 @@ export interface StocksResponse {
   _id: ObjectId;
   type: "IN" | "OUT" | "ADJUSTMENT";
   items: {
+    isSubUnit: boolean;
     productId: ObjectId;
     quantity: number;
   }[];
@@ -109,10 +120,14 @@ export interface StocksResponse {
 
 export interface EnrichedItemStocks {
   quantity: number;
+  isSubUnit: boolean;
   productDetails: {
     _id: ObjectId;
     name: string;
     currentStock: number;
+    unit: "pcs" | "boxes" | "bags" | "rolls";
+    hasSubUnit: 1;
+    subUnit: SubUnit;
   };
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Layout from "@/components/common/layout/Layout";
-import React, { useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { addBillSchema, AddBill } from "@/@types";
@@ -13,12 +13,52 @@ import { useRouter } from "next/navigation";
 import { useDisclosure } from "@mantine/hooks";
 import ImportModalAdd from "@/components/bills/modals/ImportModalAdd";
 import StepperMain from "@/components/bills/steppers/AddBillSteppers/StepperMain";
+import { ProductPriceMap } from "../../invoices/add-invoice/page";
+import { useProductsData } from "@/hooks/use-queries";
 
 const AddProformaInvoice = () => {
   const [opened, { open, close }] = useDisclosure(false);
   const router = useRouter();
   const queryClient = useQueryClient();
   const containerRef = useRef<HTMLDivElement>(null);
+  const [products, setProducts] = useState<
+    {
+      _id: string;
+      name: string;
+      price: number;
+      unit: string;
+      hasSubUnit?: boolean;
+      subUnit?: {
+        unit: string;
+        conversionRate: number;
+      };
+    }[]
+  >([]);
+  const [productPrices, setProductPrices] = useState<ProductPriceMap>({});
+
+  const {
+    data: productsData,
+    refetch: refetchProducts,
+    isLoading,
+  } = useProductsData({
+    limit: 1000,
+    offset: 0,
+  });
+
+  useEffect(() => {
+    if (productsData?.products) {
+      setProducts(
+        productsData.products.map((p) => ({
+          _id: p._id.toString(),
+          name: p.name,
+          price: p.price,
+          unit: p.unit,
+          hasSubUnit: p.hasSubUnit,
+          subUnit: p.subUnit,
+        }))
+      );
+    }
+  }, [productsData, setProducts]);
 
   const {
     register,
@@ -30,7 +70,7 @@ const AddProformaInvoice = () => {
   } = useForm<AddBill>({
     resolver: zodResolver(addBillSchema),
     defaultValues: {
-      items: [{ productId: "", quantity: 1 }],
+      items: [{ productId: "", quantity: 0 }],
       invoiceDate: String(new Date()),
       supplyDetails: {
         supplyPlace: "",
@@ -88,6 +128,90 @@ const AddProformaInvoice = () => {
     router.push("/operator/bills/proforma-invoices");
   };
 
+  // Get price for a specific item index
+  const getItemPrice = (
+    item: {
+      productId: string;
+      quantity: number;
+      discountPercentage?: number | undefined;
+      isSubUnit?: boolean | undefined;
+    },
+    index: number
+  ): number => {
+    let price = productPrices[index];
+    if (item.isSubUnit && item.productId) {
+      const conversionRate = getConversionRate(item.productId);
+      price = price / conversionRate;
+    }
+    return price;
+  };
+
+  // Get conversion rate for a product
+  const getConversionRate = (productId: string) => {
+    const product = products.find((p) => p._id === productId);
+    return product?.subUnit?.conversionRate || 1;
+  };
+
+  const calculateItemTotal = (
+    item: {
+      productId: string;
+      quantity: number;
+      discountPercentage?: number | undefined;
+      isSubUnit?: boolean | undefined;
+    },
+    index: number
+  ): number => {
+    const itemPrice = productPrices[index] || 0;
+    let quantity = item.quantity || 0;
+
+    // If billing in subunit, convert quantity
+    if (item.isSubUnit && item.productId) {
+      const conversionRate = getConversionRate(item.productId);
+      quantity = quantity / conversionRate;
+    }
+
+    const baseAmount = quantity * itemPrice;
+    const discountAmount = item.discountPercentage
+      ? (baseAmount * (item.discountPercentage || 0)) / 100
+      : 0;
+
+    return Math.max(0, baseAmount - discountAmount);
+  };
+
+  const calculateBaseAmount = (
+    item: {
+      productId: string;
+      quantity: number;
+      discountPercentage?: number | undefined;
+      isSubUnit?: boolean | undefined;
+    },
+    index: number
+  ): number => {
+    const itemPrice = productPrices[index] || 0;
+    let quantity = item.quantity || 0;
+
+    // If billing in subunit, convert quantity
+    if (item.isSubUnit && item.productId) {
+      const conversionRate = getConversionRate(item.productId);
+      quantity = quantity / conversionRate;
+    }
+
+    return quantity * itemPrice;
+  };
+
+  const getDiscountAmount = (
+    item: {
+      productId: string;
+      quantity: number;
+      discountPercentage?: number | undefined;
+      isSubUnit?: boolean | undefined;
+    },
+    index: number
+  ): number => {
+    const baseAmount = calculateBaseAmount(item, index);
+    return (baseAmount * (item.discountPercentage || 0)) / 100;
+  };
+
   return (
     <Layout title="Create Proforma Invoice" active={1} subActive={1}>
       <div className="flex flex-col h-[calc(100dvh-66px)] lg:h-[92.3dvh]">
@@ -123,6 +247,8 @@ const AddProformaInvoice = () => {
                 opened={opened}
                 close={close}
                 setValue={setValue}
+                products={products}
+                setProductPrices={setProductPrices}
               />
             </div>
 
@@ -136,6 +262,14 @@ const AddProformaInvoice = () => {
               isPending={isPending}
               type="proforma-invoices"
               containerRef={containerRef}
+              setProductPrices={setProductPrices}
+              getItemPrice={getItemPrice}
+              products={products}
+              calculateItemTotal={calculateItemTotal}
+              calculateBaseAmount={calculateBaseAmount}
+              getDiscountAmount={getDiscountAmount}
+              refetchProducts={refetchProducts}
+              isLoading={isLoading}
             />
           </div>
         </div>

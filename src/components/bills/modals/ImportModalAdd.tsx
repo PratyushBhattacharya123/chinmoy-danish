@@ -7,14 +7,35 @@ import toast from "react-hot-toast";
 import { FiDownload } from "react-icons/fi";
 import { UseFormSetValue } from "react-hook-form";
 import { AddBill } from "@/@types";
+import { ProductPriceMap } from "@/app/operator/bills/invoices/add-invoice/page";
 
 type Props = {
   opened: boolean;
   close: () => void;
   setValue: UseFormSetValue<AddBill>;
+  setProductPrices: React.Dispatch<React.SetStateAction<ProductPriceMap>>;
+  products: {
+    _id: string;
+    name: string;
+    price: number;
+    unit: string;
+    hasSubUnit?: boolean | undefined;
+    subUnit?:
+      | {
+          unit: string;
+          conversionRate: number;
+        }
+      | undefined;
+  }[];
 };
 
-const ImportModalAdd = ({ opened, close, setValue }: Props) => {
+const ImportModalAdd = ({
+  opened,
+  close,
+  setValue,
+  setProductPrices,
+  products,
+}: Props) => {
   const isMobile = useIsMobile();
   const [bills, setBills] = useState<EnrichedBillsResponse[]>([]);
   const [importType, setImportType] = useState<
@@ -69,9 +90,23 @@ const ImportModalAdd = ({ opened, close, setValue }: Props) => {
         billData.items.map((item) => ({
           ...item,
           productId: item.productDetails?._id.toString() || "",
+          isSubUnit: item.isSubUnit,
         }))
       );
       setValue("addOns", billData.addOns);
+
+      const newProductPrices: ProductPriceMap = {};
+
+      billData.items.forEach((item, index) => {
+        const product = products.find(
+          (p) => p._id.toString() === item.productDetails?._id.toString()
+        );
+        if (product) {
+          newProductPrices[index] = product.price;
+        }
+      });
+
+      setProductPrices(newProductPrices);
 
       toast.success("Bill imported successfully!");
       close();

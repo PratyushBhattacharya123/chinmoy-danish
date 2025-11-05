@@ -106,10 +106,17 @@ export async function GET(req: NextRequest) {
           type: 1,
           items: {
             quantity: 1,
+            isSubUnit: 1,
             productDetails: {
               _id: 1,
               name: 1,
               currentStock: 1,
+              unit: 1,
+              hasSubUnit: 1,
+              subUnit: {
+                unit: 1,
+                conversionRate: 1,
+              },
             },
           },
           notes: 1,
@@ -207,30 +214,46 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate stock availability for OUT operations
+    // Validate stock availability for OUT operations with subunit conversion
     for (const item of items) {
       if (stockData.type === "OUT") {
         const product = existingProducts.find(
           (p) => p._id.toString() === item.productId
         );
-        if (product && product.currentStock < item.quantity) {
-          return NextResponse.json(
-            {
-              error: "Insufficient stock",
-              productId: item.productId,
-              productName: product.name,
-              currentStock: product.currentStock,
-              requested: item.quantity,
-            },
-            { status: 400 }
-          );
+
+        if (product) {
+          let effectiveQuantity = item.quantity;
+
+          // Convert subunit quantity to main unit quantity for validation
+          if (item.isSubUnit && product.subUnit) {
+            effectiveQuantity = item.quantity / product.subUnit.conversionRate;
+          }
+
+          if (product.currentStock < effectiveQuantity) {
+            return NextResponse.json(
+              {
+                error: "Insufficient stock",
+                productId: item.productId,
+                productName: product.name,
+                currentStock: product.currentStock,
+                requested: effectiveQuantity,
+                isSubUnit: item.isSubUnit,
+                ...(item.isSubUnit &&
+                  product.subUnit && {
+                    subUnitRequested: item.quantity,
+                    conversionRate: product.subUnit.conversionRate,
+                  }),
+              },
+              { status: 400 }
+            );
+          }
         }
       }
     }
 
     const now = new Date();
 
-    //  apply the new stock changes
+    // Apply the new stock changes with subunit conversion
     await applyStockChanges(
       stockData.type,
       items,
@@ -240,10 +263,13 @@ export async function POST(req: NextRequest) {
 
     const stockDocument = {
       type: stockData.type,
-      items: items.map((item) => ({
-        productId: new ObjectId(item.productId),
-        quantity: item.quantity,
-      })),
+      items: items.map((item) => {
+        return {
+          productId: new ObjectId(item.productId),
+          quantity: item.quantity,
+          isSubUnit: item.isSubUnit || false,
+        };
+      }),
       notes: stockData.notes,
       createdBy: new ObjectId(session.user.id),
       createdAt: now,

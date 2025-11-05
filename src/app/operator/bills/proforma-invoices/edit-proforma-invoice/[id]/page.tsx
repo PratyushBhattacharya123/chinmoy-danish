@@ -15,7 +15,7 @@ import ImportModalUpdate from "@/components/bills/modals/ImportModalUpdate";
 import StepperMain from "@/components/bills/steppers/UpdateBillSteppers/StepperMain";
 import { useBillData, useProductsData } from "@/hooks/use-queries";
 import CustomLoader from "@/components/common/CustomLoader";
-import { ProductPriceMap } from "@/components/bills/steppers/AddBillSteppers/StepperMain";
+import { ProductPriceMap } from "../../../invoices/add-invoice/page";
 
 const UpdateProformaInvoice = () => {
   const { id } = useParams<{ id: string }>();
@@ -24,11 +24,111 @@ const UpdateProformaInvoice = () => {
   const router = useRouter();
   const queryClient = useQueryClient();
   const containerRef = useRef<HTMLDivElement>(null);
+  const [products, setProducts] = useState<
+    {
+      _id: string;
+      name: string;
+      price: number;
+      unit: string;
+      hasSubUnit?: boolean;
+      subUnit?: {
+        unit: string;
+        conversionRate: number;
+      };
+    }[]
+  >([]);
   const [productPrices, setProductPrices] = useState<ProductPriceMap>({});
 
   // Get price for a specific item index
-  const getItemPrice = (index: number): number => {
-    return productPrices[index] || 0;
+  const getItemPrice = (
+    item:
+      | {
+          productId: string;
+          quantity: number;
+          discountPercentage?: number | undefined;
+          isSubUnit?: boolean | undefined;
+        }
+      | undefined,
+    index: number
+  ): number => {
+    let price = productPrices[index];
+    if (item?.isSubUnit && item?.productId) {
+      const conversionRate = getConversionRate(item?.productId);
+      price = price / conversionRate;
+    }
+    return price;
+  };
+
+  // Get conversion rate for a product
+  const getConversionRate = (productId: string) => {
+    const product = products.find((p) => p._id === productId);
+    return product?.subUnit?.conversionRate || 1;
+  };
+
+  const calculateItemTotal = (
+    item:
+      | {
+          productId: string;
+          quantity: number;
+          discountPercentage?: number | undefined;
+          isSubUnit?: boolean | undefined;
+        }
+      | undefined,
+    index: number
+  ): number => {
+    const itemPrice = productPrices[index] || 0;
+    let quantity = item?.quantity || 0;
+
+    // If billing in subunit, convert quantity
+    if (item?.isSubUnit && item?.productId) {
+      const conversionRate = getConversionRate(item.productId);
+      quantity = quantity / conversionRate;
+    }
+
+    const baseAmount = quantity * itemPrice;
+    const discountAmount = item?.discountPercentage
+      ? (baseAmount * (item?.discountPercentage || 0)) / 100
+      : 0;
+
+    return Math.max(0, baseAmount - discountAmount);
+  };
+
+  const calculateBaseAmount = (
+    item:
+      | {
+          productId: string;
+          quantity: number;
+          discountPercentage?: number | undefined;
+          isSubUnit?: boolean | undefined;
+        }
+      | undefined,
+    index: number
+  ): number => {
+    const itemPrice = productPrices[index] || 0;
+    let quantity = item?.quantity || 0;
+
+    // If billing in subunit, convert quantity
+    if (item?.isSubUnit && item?.productId) {
+      const conversionRate = getConversionRate(item?.productId);
+      quantity = quantity / conversionRate;
+    }
+
+    return quantity * itemPrice;
+  };
+
+  const getDiscountAmount = (
+    item:
+      | {
+          productId: string;
+          quantity: number;
+          discountPercentage?: number | undefined;
+          isSubUnit?: boolean | undefined;
+        }
+      | undefined,
+    index: number
+  ): number => {
+    const baseAmount = calculateBaseAmount(item, index);
+    return (baseAmount * (item?.discountPercentage || 0)) / 100;
   };
 
   const {
@@ -41,7 +141,7 @@ const UpdateProformaInvoice = () => {
   } = useForm<UpdateBill>({
     resolver: zodResolver(updateBillSchema),
     defaultValues: {
-      items: [{ productId: "", quantity: 1 }],
+      items: [{ productId: "", quantity: 0 }],
       invoiceDate: String(new Date()),
       supplyDetails: {
         supplyPlace: "",
@@ -52,10 +152,30 @@ const UpdateProformaInvoice = () => {
     },
   });
 
-  const { data: productsData, isSuccess: productsSuccess } = useProductsData({
+  const {
+    data: productsData,
+    isSuccess: productsSuccess,
+    refetch: refetchProducts,
+    isLoading,
+  } = useProductsData({
     limit: 1000,
     offset: 0,
   });
+
+  useEffect(() => {
+    if (productsData?.products) {
+      setProducts(
+        productsData.products.map((p) => ({
+          _id: p._id.toString(),
+          name: p.name,
+          price: p.price,
+          unit: p.unit,
+          hasSubUnit: p.hasSubUnit,
+          subUnit: p.subUnit,
+        }))
+      );
+    }
+  }, [productsData, setProducts]);
 
   // Update invoice mutation
   const { mutate: updateInvoice, isPending } = useMutation({
@@ -120,6 +240,7 @@ const UpdateProformaInvoice = () => {
         billData.items.map((item) => ({
           ...item,
           productId: item.productDetails?._id.toString() || "",
+          isSubUnit: item.isSubUnit,
         }))
       );
       setValue("addOns", billData.addOns);
@@ -194,6 +315,8 @@ const UpdateProformaInvoice = () => {
                   opened={opened}
                   close={close}
                   setValue={setValue}
+                  products={products}
+                  setProductPrices={setProductPrices}
                 />
               </div>
 
@@ -209,6 +332,12 @@ const UpdateProformaInvoice = () => {
                 containerRef={containerRef}
                 setProductPrices={setProductPrices}
                 getItemPrice={getItemPrice}
+                products={products}
+                calculateItemTotal={calculateItemTotal}
+                calculateBaseAmount={calculateBaseAmount}
+                getDiscountAmount={getDiscountAmount}
+                refetchProducts={refetchProducts}
+                isLoading={isLoading}
               />
             </div>
           )}

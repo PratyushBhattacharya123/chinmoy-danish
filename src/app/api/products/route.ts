@@ -176,7 +176,7 @@ export async function POST(req: NextRequest) {
     const productDocument = {
       ...data,
       categoryId: new ObjectId(data.categoryId),
-      currentStock: 0,
+      currentStock: data.quantity,
     };
 
     const result = await productsCollection.insertOne(productDocument);

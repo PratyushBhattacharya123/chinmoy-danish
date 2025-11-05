@@ -1,6 +1,7 @@
 "use client";
 
 import { AddProduct, productFormSchema } from "@/@types";
+import { SubUnit } from "@/@types/server/response";
 import { ProductDataType } from "@/app/operator/products/page";
 import { useCategoriesData } from "@/hooks/use-queries";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,13 +25,21 @@ const EditProductModalContent = ({
     formState: { errors },
   } = useForm<AddProduct>({
     resolver: zodResolver(productFormSchema),
+    defaultValues: {
+      unit: "pcs",
+      hasSubUnit: false,
+    },
   });
 
   const [categoryValue, setCategoryValue] = useState<string>("");
   const [unitValue, setUnitValue] = useState<string>("");
 
-  const categoryId = watch("categoryId");
+  // Watch form values for subunit functionality
   const unit = watch("unit");
+  const hasSubUnitValue = watch("hasSubUnit");
+  const subUnitValue = watch("subUnit");
+
+  const categoryId = watch("categoryId");
 
   const { data: categoriesData, isLoading: categoriesLoading } =
     useCategoriesData({
@@ -45,6 +54,7 @@ const EditProductModalContent = ({
       const productData: AddProduct = {
         ...data,
         unit: data.unit || "pcs",
+        ...(data.hasSubUnit ? {} : { subUnit: undefined }),
       };
 
       const response = await fetch(`/api/products/${innerProps.id}`, {
@@ -101,23 +111,114 @@ const EditProductModalContent = ({
     mutate(data);
   };
 
+  // Reset subunit when main unit changes or hasSubUnit is disabled
+  useEffect(() => {
+    if (!hasSubUnitValue) {
+      setValue("subUnit", undefined);
+    } else {
+      // Set default subunit based on main unit
+      const defaultSubUnits: Record<string, string> = {
+        boxes: "pcs",
+        pipes: "feets",
+        rolls: "mtrs",
+      };
+
+      const defaultSubUnit = defaultSubUnits[unit];
+      if (
+        defaultSubUnit &&
+        (!subUnitValue?.unit || !isValidSubUnit(unit, subUnitValue.unit))
+      ) {
+        setValue("subUnit.unit", defaultSubUnit as "pcs" | "feets" | "mtrs");
+      }
+    }
+  }, [unit, hasSubUnitValue, setValue, subUnitValue]);
+
+  // Check if subunit is valid for the current main unit
+  const isValidSubUnit = (
+    mainUnit: string,
+    subUnit: string | undefined
+  ): boolean => {
+    const validSubUnits: Record<string, string[]> = {
+      boxes: ["pcs"],
+      pipes: ["feets"],
+      rolls: ["mtrs"],
+    };
+    return validSubUnits[mainUnit]?.includes(subUnit || "") || false;
+  };
+
+  // Get available subunits based on main unit
+  const getAvailableSubUnits = (mainUnit: string) => {
+    const subUnitOptions: Record<string, { value: string; label: string }[]> = {
+      boxes: [{ value: "pcs", label: "Pieces" }],
+      pipes: [{ value: "feets", label: "Feets" }],
+      rolls: [{ value: "mtrs", label: "Metres" }],
+    };
+    return subUnitOptions[mainUnit] || [];
+  };
+
+  // Check if current unit supports subunits
+  const supportsSubUnits = ["boxes", "pipes", "rolls"].includes(unit);
+
   useEffect(() => {
     if (innerProps.data) {
       setValue("name", innerProps.data.name);
       setValue("hsnCode", innerProps.data.hsnCode);
-
       setValue("gstSlab", parseInt(innerProps.data.gstSlab) as 5 | 18);
-
       setValue(
         "unit",
-        innerProps.data.unit as "pcs" | "boxes" | "bags" | "rolls"
+        innerProps.data.unit as "pcs" | "boxes" | "pipes" | "rolls"
       );
       setUnitValue(innerProps.data.unit);
-
       setValue("price", parseInt(innerProps.data.price));
-
       setValue("categoryId", innerProps.data.categoryId);
+      setValue(
+        "quantity",
+        innerProps.data.currentStock
+          ? Number(innerProps.data.currentStock)
+          : undefined
+      );
       setCategoryValue(innerProps.data.categoryId);
+
+      // Safely parse subunit data
+      let parsedSubUnit: SubUnit | null = null;
+      let hasSubUnit = false;
+
+      try {
+        // Check if hasSubUnit exists and is truthy
+        hasSubUnit = innerProps.data.hasSubUnit
+          ? innerProps.data.hasSubUnit === "true"
+          : false;
+
+        // Check if subUnit exists and is a valid string
+        if (
+          innerProps.data.subUnit &&
+          typeof innerProps.data.subUnit === "string" &&
+          innerProps.data.subUnit.trim() !== ""
+        ) {
+          parsedSubUnit = JSON.parse(innerProps.data.subUnit);
+        }
+      } catch (error) {
+        console.error("Error parsing subunit data:", error);
+        parsedSubUnit = null;
+        hasSubUnit = false;
+      }
+
+      // Set subunit data if it exists and is valid
+      if (
+        hasSubUnit &&
+        parsedSubUnit &&
+        parsedSubUnit.unit &&
+        parsedSubUnit.conversionRate
+      ) {
+        setValue("hasSubUnit", true);
+        setValue("subUnit", {
+          unit: parsedSubUnit.unit as "pcs" | "feets" | "mtrs",
+          conversionRate: parsedSubUnit.conversionRate,
+        });
+      } else {
+        setValue("hasSubUnit", false);
+        setValue("subUnit", undefined);
+      }
     }
   }, [innerProps.data, setValue, categoriesData]);
 
@@ -235,33 +336,55 @@ const EditProductModalContent = ({
           />
         </div>
 
-        <Select
-          label={<span className="font-medium text-gray-700">Category</span>}
-          placeholder="Select category"
-          value={categoryValue}
-          data={
-            categoriesData?.categories?.map((category) => ({
-              value: category._id.toString(),
-              label: category.title,
-            })) || []
-          }
-          onChange={(value) => {
-            if (value) {
-              setValue("categoryId", value, { shouldValidate: true });
-              setCategoryValue(value);
+        <div className="flex sm:flex-row flex-col sm:gap-4 gap-3">
+          <Select
+            label={<span className="font-medium text-gray-700">Category</span>}
+            placeholder="Select category"
+            value={categoryValue}
+            data={
+              categoriesData?.categories?.map((category) => ({
+                value: category._id.toString(),
+                label: category.title,
+              })) || []
             }
-          }}
-          required
-          disabled={categoriesLoading}
-          classNames={{
-            input:
-              "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
-            label: "!mb-1 !text-gray-700",
-          }}
-          error={errors.categoryId?.message}
-          variant="filled"
-          rightSection={categoriesLoading ? <Loader size={16} /> : undefined}
-        />
+            onChange={(value) => {
+              if (value) {
+                setValue("categoryId", value, { shouldValidate: true });
+                setCategoryValue(value);
+              }
+            }}
+            required
+            disabled={categoriesLoading}
+            classNames={{
+              input:
+                "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
+              label: "!mb-1 !text-gray-700",
+            }}
+            className="!w-full"
+            error={errors.categoryId?.message}
+            variant="filled"
+            rightSection={categoriesLoading ? <Loader size={16} /> : undefined}
+          />
+
+          <NumberInput
+            label={<span className="font-medium text-gray-700">Quantity</span>}
+            placeholder="Enter quantity here..."
+            value={watch("quantity")}
+            onChange={(value) => {
+              setValue("quantity", value as number);
+            }}
+            classNames={{
+              input:
+                "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
+              label: "!mb-1 !text-gray-700",
+            }}
+            className="w-full"
+            error={errors.quantity?.message}
+            variant="filled"
+            allowNegative={false}
+            hideControls
+          />
+        </div>
 
         <Select
           label={
@@ -274,15 +397,18 @@ const EditProductModalContent = ({
           data={[
             { value: "pcs", label: "Pieces" },
             { value: "boxes", label: "Boxes" },
-            { value: "bags", label: "Bags" },
+            { value: "pipes", label: "Pipes" },
             { value: "rolls", label: "Rolls" },
           ]}
           onChange={(value) => {
             if (value) {
-              setValue("unit", value as "pcs" | "boxes" | "bags" | "rolls", {
+              setValue("unit", value as "pcs" | "boxes" | "pipes" | "rolls", {
                 shouldValidate: true,
               });
-              setUnitValue(value);
+              // Auto-disable subunit if unit doesn't support it
+              if (!["boxes", "pipes", "rolls"].includes(value)) {
+                setValue("hasSubUnit", false);
+              }
             }
           }}
           classNames={{
@@ -294,6 +420,103 @@ const EditProductModalContent = ({
           variant="filled"
           required
         />
+
+        {/* SubUnit Configuration */}
+        {supportsSubUnits && (
+          <div className="space-y-3 p-4 border border-gray-200 rounded-md bg-gray-50">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="hasSubUnit"
+                checked={hasSubUnitValue}
+                onChange={(event) => {
+                  setValue("hasSubUnit", event.currentTarget.checked, {
+                    shouldValidate: true,
+                  });
+                }}
+                className="w-4 h-4 text-gray-600 bg-gray-100 border-gray-300 rounded focus:ring-gray-500 cursor-pointer"
+                style={{ accentColor: "#475569" }}
+              />
+              <label
+                htmlFor="hasSubUnit"
+                className="text-sm font-medium text-gray-700"
+              >
+                Enable Sub Unit
+              </label>
+            </div>
+
+            {hasSubUnitValue && (
+              <div className="flex sm:flex-row flex-col sm:gap-4 gap-3 mt-3 sm:items-end">
+                <Select
+                  label={
+                    <span className="font-medium text-gray-700">Sub Unit</span>
+                  }
+                  placeholder="Select sub unit"
+                  data={getAvailableSubUnits(unit)}
+                  value={subUnitValue?.unit || ""}
+                  onChange={(value) => {
+                    if (value) {
+                      setValue(
+                        "subUnit.unit",
+                        value as "pcs" | "feets" | "mtrs",
+                        {
+                          shouldValidate: true,
+                        }
+                      );
+                    }
+                  }}
+                  classNames={{
+                    input:
+                      "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
+                    label: "!mb-1 !text-gray-700",
+                  }}
+                  className="w-full"
+                  error={errors.subUnit?.unit?.message}
+                  variant="filled"
+                  required
+                />
+
+                <NumberInput
+                  label={
+                    <span className="font-medium text-gray-700">
+                      Conversion Rate
+                    </span>
+                  }
+                  placeholder="e.g., 1000"
+                  description={`1 ${unit} = ${
+                    subUnitValue?.conversionRate
+                      ? subUnitValue?.conversionRate
+                      : "?"
+                  } ${
+                    subUnitValue?.unit || getAvailableSubUnits(unit)[0]?.label
+                  }`}
+                  value={subUnitValue?.conversionRate || ""}
+                  onChange={(value) => {
+                    if (value !== "") {
+                      setValue("subUnit.conversionRate", value as number, {
+                        shouldValidate: true,
+                      });
+                    }
+                  }}
+                  classNames={{
+                    input:
+                      "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
+                    label: "!mb-1 !text-gray-700",
+                    description: "!text-gray-500 !text-xs",
+                  }}
+                  className="w-full"
+                  error={errors.subUnit?.conversionRate?.message}
+                  variant="filled"
+                  allowNegative={false}
+                  min={0.001}
+                  step={0.001}
+                  hideControls
+                  required
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         <button
           type="submit"

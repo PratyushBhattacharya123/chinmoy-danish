@@ -21,9 +21,23 @@ import { useRouter } from "next/navigation";
 import { FaFileImport } from "react-icons/fa6";
 import { useDisclosure } from "@mantine/hooks";
 import ImportModalAdd from "@/components/stocks/modals/ImportModalAdd";
+import { capitalize } from "@/components/utils/helper";
 
 const StockUpdateForm = () => {
   const [opened, { open, close }] = useDisclosure(false);
+  const [products, setProducts] = useState<
+    {
+      _id: string;
+      name: string;
+      price: number;
+      unit: string;
+      hasSubUnit?: boolean;
+      subUnit?: {
+        unit: string;
+        conversionRate: number;
+      };
+    }[]
+  >([]);
 
   const router = useRouter();
   const [showAddProduct, setShowAddProduct] = useState(false);
@@ -64,7 +78,6 @@ const StockUpdateForm = () => {
     isLoading: categoriesLoading,
   } = useCategoriesData({ limit: 100, offset: 0 });
 
-  const [products, setProducts] = useState<{ _id: string; name: string }[]>([]);
   const [categories, setCategories] = useState<
     { _id: string; title: string }[]
   >([]);
@@ -96,6 +109,10 @@ const StockUpdateForm = () => {
         productsData.products.map((p) => ({
           _id: p._id.toString(),
           name: p.name,
+          price: p.price,
+          unit: p.unit,
+          hasSubUnit: p.hasSubUnit,
+          subUnit: p.subUnit,
         }))
       );
     }
@@ -321,6 +338,113 @@ const StockUpdateForm = () => {
     router.push("/operator/stocks");
   };
 
+  // Watch values for calculations
+  const items = watch("items");
+
+  // Watch product form values for subunit functionality
+  const unitValue = watchProduct("unit");
+  const hasSubUnitValue = watchProduct("hasSubUnit");
+  const subUnitValue = watchProduct("subUnit");
+
+  // Subunit logic for product form
+  useEffect(() => {
+    if (!hasSubUnitValue) {
+      setProductValue("subUnit", undefined);
+    } else {
+      const defaultSubUnits: Record<string, string> = {
+        boxes: "pcs",
+        pipes: "feets",
+        rolls: "mtrs",
+      };
+
+      const defaultSubUnit = defaultSubUnits[unitValue];
+      if (
+        defaultSubUnit &&
+        (!subUnitValue?.unit || !isValidSubUnit(unitValue, subUnitValue.unit))
+      ) {
+        setProductValue(
+          "subUnit.unit",
+          defaultSubUnit as "pcs" | "feets" | "mtrs"
+        );
+      }
+    }
+  }, [unitValue, hasSubUnitValue, setProductValue, subUnitValue]);
+
+  const isValidSubUnit = (
+    mainUnit: string,
+    subUnit: string | undefined
+  ): boolean => {
+    const validSubUnits: Record<string, string[]> = {
+      boxes: ["pcs"],
+      pipes: ["feets"],
+      rolls: ["mtrs"],
+    };
+    return validSubUnits[mainUnit]?.includes(subUnit || "") || false;
+  };
+
+  const getAvailableSubUnits = (mainUnit: string) => {
+    const subUnitOptions: Record<string, { value: string; label: string }[]> = {
+      boxes: [{ value: "pcs", label: "Pieces" }],
+      pipes: [{ value: "feets", label: "Feets" }],
+      rolls: [{ value: "mtrs", label: "Metres" }],
+    };
+    return subUnitOptions[mainUnit] || [];
+  };
+
+  const supportsSubUnits = ["boxes", "pipes", "rolls"].includes(unitValue);
+
+  // Check if product supports subunits
+  const productSupportsSubUnits = (productId: string) => {
+    const product = products.find((p) => p._id === productId);
+    return product?.hasSubUnit && product?.subUnit;
+  };
+
+  // Handle subunit toggle
+  const handleSubUnitToggle = (index: number, checked: boolean) => {
+    const productId = items?.[index]?.productId;
+    if (!productId) {
+      toast.error("Please select a product first");
+      return;
+    }
+
+    if (checked && !productSupportsSubUnits(productId)) {
+      toast.error("This product does not support subunits");
+      return;
+    }
+
+    setValue(`items.${index}.isSubUnit`, checked);
+  };
+
+  // Get unit display for an item
+  const getUnitDisplay = (index: number) => {
+    const item = items?.[index];
+    if (!item?.productId) return "";
+
+    const product = products.find((p) => p._id === item.productId);
+    if (!product) return "";
+
+    if (item.isSubUnit && product.subUnit) {
+      return product.subUnit.unit;
+    }
+
+    return product.unit;
+  };
+
+  // Get conversion info for display
+  const getConversionInfo = (index: number) => {
+    const item = items?.[index];
+    if (!item?.productId || !item.isSubUnit) return null;
+
+    const product = products.find((p) => p._id === item.productId);
+    if (!product?.subUnit) return null;
+
+    return {
+      mainUnit: product.unit,
+      subUnit: product.subUnit.unit,
+      rate: product.subUnit.conversionRate,
+    };
+  };
+
   return (
     <Layout title="Update Stock" active={5}>
       <div className="flex flex-col h-[calc(100dvh-66px)] lg:h-[92.3dvh] bg-gray-50">
@@ -421,10 +545,19 @@ const StockUpdateForm = () => {
                     <div key={field.id}>
                       {currentItemIndex !== index && (
                         <div
-                          className="p-4 border border-gray-200 rounded-lg relative flex flex-col sm:gap-4 gap-2 bg-white"
+                          className="p-4 pb-8 border border-gray-200 rounded-lg relative flex flex-col sm:gap-4 gap-2 bg-white"
                           key={field.id}
                         >
-                          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+                          <div
+                            className={`grid grid-cols-1 ${
+                              watch(`items.${index}.productId`) &&
+                              productSupportsSubUnits(
+                                items?.[index]?.productId || ""
+                              )
+                                ? "md:grid-cols-16"
+                                : "md:grid-cols-12"
+                            } gap-4 items-start`}
+                          >
                             <div className="md:col-span-8 flex items-end gap-3">
                               <Controller
                                 name={`items.${index}.productId`}
@@ -480,6 +613,68 @@ const StockUpdateForm = () => {
                               </Button>
                             </div>
 
+                            {watch(`items.${index}.productId`) &&
+                              productSupportsSubUnits(
+                                items?.[index]?.productId || ""
+                              ) && (
+                                <>
+                                  {/* Unit Display */}
+                                  <div className="md:col-span-2">
+                                    <div className="space-y-1">
+                                      <div className="text-sm font-medium text-gray-700 mb-1">
+                                        Unit
+                                      </div>
+                                      <div className="h-10 flex items-center px-3 border border-gray-300 rounded-md bg-gray-50 text-gray-600 text-sm">
+                                        {capitalize(getUnitDisplay(index))}
+                                      </div>
+                                      {getConversionInfo(index) && (
+                                        <div className="text-xs text-gray-500">
+                                          1 {getConversionInfo(index)?.mainUnit}{" "}
+                                          = {getConversionInfo(index)?.rate}{" "}
+                                          {getConversionInfo(index)?.subUnit}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* SubUnit Toggle */}
+                                  <div className="md:col-span-2 h-full flex items-center">
+                                    <Controller
+                                      name={`items.${index}.isSubUnit`}
+                                      control={control}
+                                      render={({ field }) => (
+                                        <div className="flex items-center gap-2">
+                                          <input
+                                            type="checkbox"
+                                            id="hasSubUnit"
+                                            checked={field.value || false}
+                                            onChange={(event) =>
+                                              handleSubUnitToggle(
+                                                index,
+                                                event.currentTarget.checked
+                                              )
+                                            }
+                                            disabled={
+                                              !productSupportsSubUnits(
+                                                items?.[index]?.productId || ""
+                                              )
+                                            }
+                                            className="w-4 h-4 text-gray-600 bg-gray-100 border-gray-300 rounded focus:ring-gray-500 cursor-pointer"
+                                            style={{ accentColor: "#475569" }}
+                                          />
+                                          <label
+                                            htmlFor="hasSubUnit"
+                                            className="text-sm font-medium text-gray-700"
+                                          >
+                                            Bill in Sub Unit
+                                          </label>
+                                        </div>
+                                      )}
+                                    />
+                                  </div>
+                                </>
+                              )}
+
                             <div className="md:col-span-4">
                               <Controller
                                 name={`items.${index}.quantity`}
@@ -493,6 +688,7 @@ const StockUpdateForm = () => {
                                     }
                                     placeholder="Enter quantity"
                                     min={watch("type") === "ADJUSTMENT" ? 0 : 1}
+                                    allowNegative={false}
                                     value={field.value}
                                     onChange={(val) => field.onChange(val)}
                                     error={
@@ -645,6 +841,31 @@ const StockUpdateForm = () => {
                                 hideControls
                                 prefix="₹"
                               />
+                            </div>
+
+                            <div className="flex sm:flex-row flex-col sm:gap-4 gap-3 mb-4">
+                              <NumberInput
+                                label={
+                                  <span className="font-medium text-gray-700">
+                                    Current Stock (optional)
+                                  </span>
+                                }
+                                placeholder="Enter current stock here..."
+                                value={watchProduct("quantity")}
+                                onChange={(value) => {
+                                  setProductValue("quantity", value as number);
+                                }}
+                                classNames={{
+                                  input:
+                                    "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
+                                  label: "!mb-1 !text-gray-700",
+                                }}
+                                className="!w-full"
+                                error={productErrors.quantity?.message}
+                                variant="filled"
+                                allowNegative={false}
+                                hideControls
+                              />
 
                               <Select
                                 label={
@@ -656,34 +877,157 @@ const StockUpdateForm = () => {
                                 data={[
                                   { value: "pcs", label: "Pieces" },
                                   { value: "boxes", label: "Boxes" },
-                                  { value: "bags", label: "Bags" },
+                                  { value: "pipes", label: "Pipes" },
                                   { value: "rolls", label: "Rolls" },
                                 ]}
                                 defaultValue="pcs"
                                 onChange={(value) => {
-                                  if (value)
+                                  if (value) {
                                     setProductValue(
                                       "unit",
                                       value as
                                         | "pcs"
                                         | "boxes"
-                                        | "bags"
+                                        | "pipes"
                                         | "rolls",
                                       {
                                         shouldValidate: true,
                                       }
                                     );
+                                    if (
+                                      !["boxes", "pipes", "rolls"].includes(
+                                        value
+                                      )
+                                    ) {
+                                      setProductValue("hasSubUnit", false);
+                                    }
+                                  }
                                 }}
                                 classNames={{
                                   input:
                                     "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
                                   label: "!mb-1 !text-gray-700",
                                 }}
+                                className="!w-full"
                                 error={productErrors.unit?.message}
                                 variant="filled"
                                 required
                               />
                             </div>
+
+                            {/* SubUnit Configuration */}
+                            {supportsSubUnits && (
+                              <div className="space-y-3 p-4 border border-gray-200 rounded-md bg-gray-50">
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    id="hasSubUnitProduct"
+                                    checked={hasSubUnitValue}
+                                    onChange={(event) => {
+                                      setProductValue(
+                                        "hasSubUnit",
+                                        event.currentTarget.checked,
+                                        {
+                                          shouldValidate: true,
+                                        }
+                                      );
+                                    }}
+                                    className="w-4 h-4 text-gray-600 bg-gray-100 border-gray-300 rounded focus:ring-gray-500 cursor-pointer"
+                                    style={{ accentColor: "#475569" }}
+                                  />
+                                  <label
+                                    htmlFor="hasSubUnitProduct"
+                                    className="text-sm font-medium text-gray-700"
+                                  >
+                                    Enable Sub Unit
+                                  </label>
+                                </div>
+
+                                {hasSubUnitValue && (
+                                  <div className="flex sm:flex-row flex-col sm:gap-4 gap-3 mt-3 sm:items-end">
+                                    <Select
+                                      label={
+                                        <span className="font-medium text-gray-700">
+                                          Sub Unit
+                                        </span>
+                                      }
+                                      placeholder="Select sub unit"
+                                      data={getAvailableSubUnits(unitValue)}
+                                      value={subUnitValue?.unit || ""}
+                                      onChange={(value) => {
+                                        if (value) {
+                                          setProductValue(
+                                            "subUnit.unit",
+                                            value as "pcs" | "feets" | "mtrs",
+                                            {
+                                              shouldValidate: true,
+                                            }
+                                          );
+                                        }
+                                      }}
+                                      classNames={{
+                                        input:
+                                          "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
+                                        label: "!mb-1 !text-gray-700",
+                                      }}
+                                      className="w-full"
+                                      error={
+                                        productErrors.subUnit?.unit?.message
+                                      }
+                                      variant="filled"
+                                      required
+                                    />
+
+                                    <NumberInput
+                                      label={
+                                        <span className="font-medium text-gray-700">
+                                          Conversion Rate
+                                        </span>
+                                      }
+                                      placeholder="e.g., 1000"
+                                      description={`1 ${unitValue} = ${
+                                        subUnitValue?.conversionRate
+                                          ? subUnitValue?.conversionRate
+                                          : "?"
+                                      } ${
+                                        subUnitValue?.unit ||
+                                        getAvailableSubUnits(unitValue)[0]
+                                          ?.label
+                                      }`}
+                                      value={subUnitValue?.conversionRate || ""}
+                                      onChange={(value) => {
+                                        if (value !== "") {
+                                          setProductValue(
+                                            "subUnit.conversionRate",
+                                            value as number,
+                                            {
+                                              shouldValidate: true,
+                                            }
+                                          );
+                                        }
+                                      }}
+                                      classNames={{
+                                        input:
+                                          "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
+                                        label: "!mb-1 !text-gray-700",
+                                        description: "!text-gray-500 !text-xs",
+                                      }}
+                                      className="w-full"
+                                      error={
+                                        productErrors.subUnit?.conversionRate
+                                          ?.message
+                                      }
+                                      variant="filled"
+                                      allowNegative={false}
+                                      min={0.001}
+                                      step={0.001}
+                                      hideControls
+                                      required
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )}
 
                             <div className="flex gap-2 items-end">
                               <div className="flex-1">
@@ -792,6 +1136,7 @@ const StockUpdateForm = () => {
                                     }
                                     placeholder="Enter quantity"
                                     min={watch("type") === "ADJUSTMENT" ? 0 : 1}
+                                    allowNegative={false}
                                     value={field.value}
                                     onChange={(val) => field.onChange(val)}
                                     error={

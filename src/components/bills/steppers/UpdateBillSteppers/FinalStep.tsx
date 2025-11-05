@@ -1,5 +1,5 @@
 import { UpdateBill } from "@/@types";
-import { usePartyDetailsData, useProductsData } from "@/hooks/use-queries";
+import { usePartyDetailsData } from "@/hooks/use-queries";
 import { Button, Group, Loader } from "@mantine/core";
 import React, { useEffect, useLayoutEffect, useState } from "react";
 import { UseFormWatch } from "react-hook-form";
@@ -12,7 +12,46 @@ type Props = {
   isPending: boolean;
   containerRef: React.RefObject<HTMLDivElement | null>;
   type: "invoices" | "proforma-invoices";
-  getItemPrice: (index: number) => number;
+  calculateItemTotal: (
+    item: {
+      productId: string;
+      quantity: number;
+      discountPercentage?: number | undefined;
+      isSubUnit?: boolean | undefined;
+    },
+    index: number
+  ) => number;
+  getDiscountAmount: (
+    item: {
+      productId: string;
+      quantity: number;
+      discountPercentage?: number | undefined;
+      isSubUnit?: boolean | undefined;
+    },
+    index: number
+  ) => number;
+  calculateBaseAmount: (
+    item: {
+      productId: string;
+      quantity: number;
+      discountPercentage?: number | undefined;
+      isSubUnit?: boolean | undefined;
+    },
+    index: number
+  ) => number;
+  products: {
+    _id: string;
+    name: string;
+    price: number;
+    unit: string;
+    hasSubUnit?: boolean | undefined;
+    subUnit?:
+      | {
+          unit: string;
+          conversionRate: number;
+        }
+      | undefined;
+  }[];
 };
 
 const FinalStep = ({
@@ -22,19 +61,14 @@ const FinalStep = ({
   isPending,
   containerRef,
   type,
-  getItemPrice,
+  calculateItemTotal,
+  getDiscountAmount,
+  calculateBaseAmount,
+  products,
 }: Props) => {
   const [parties, setParties] = useState<{ _id: string; name: string }[]>([]);
-  const [products, setProducts] = useState<
-    { _id: string; name: string; price: number }[]
-  >([]);
 
   const { data: partiesData } = usePartyDetailsData({
-    limit: 100,
-    offset: 0,
-  });
-
-  const { data: productsData } = useProductsData({
     limit: 100,
     offset: 0,
   });
@@ -52,38 +86,9 @@ const FinalStep = ({
   const items = watch("items") || [];
   const addOns = watch("addOns") || [];
 
-  // Calculate totals with discount
-  const calculateItemTotal = (
-    item: {
-      productId: string;
-      quantity: number;
-      discountPercentage?: number;
-    },
-    index: number
-  ) => {
-    const baseAmount = (item.quantity || 0) * getItemPrice(index);
-    const discountAmount = item.discountPercentage
-      ? (baseAmount * (item.discountPercentage || 0)) / 100
-      : 0;
-
-    return Math.max(0, baseAmount - discountAmount);
-  };
-
-  const getDiscountAmount = (
-    item: {
-      productId: string;
-      quantity: number;
-      discountPercentage?: number;
-    },
-    index: number
-  ) => {
-    const baseAmount = (item.quantity || 0) * getItemPrice(index);
-    return (baseAmount * (item.discountPercentage || 0)) / 100;
-  };
-
   // Calculate all totals
   const itemsSubtotal = items.reduce(
-    (sum, item, index) => sum + item.quantity * getItemPrice(index),
+    (sum, item, index) => sum + calculateBaseAmount(item, index),
     0
   );
 
@@ -97,8 +102,45 @@ const FinalStep = ({
     0
   );
 
-  const addOnsTotal = addOns.reduce((sum, addOn) => sum + addOn.price, 0);
+  const addOnsTotal = addOns.reduce(
+    (sum, addOn) => sum + (addOn.price || 0),
+    0
+  );
   const grandTotal = itemsTotal + addOnsTotal;
+
+  // Helper function to get unit display for an item
+  const getUnitDisplay = (item: {
+    productId: string;
+    quantity: number;
+    discountPercentage?: number | undefined;
+    isSubUnit?: boolean | undefined;
+  }): string => {
+    if (!item?.productId) return "";
+
+    const product = products.find((p) => p._id === item.productId);
+    if (!product) return "";
+
+    // If billing in subunit and product supports subunits, show subunit
+    if (item.isSubUnit && product.subUnit) {
+      return product.subUnit.unit;
+    }
+
+    // Otherwise show main unit
+    return product.unit;
+  };
+
+  // Helper function to capitalize unit names for display
+  const capitalizeUnit = (unit: string): string => {
+    const unitMap: { [key: string]: string } = {
+      pcs: "Pieces",
+      boxes: "Boxes",
+      pipes: "Pipes",
+      rolls: "Rolls",
+      feets: "Feets",
+      mtrs: "Metres",
+    };
+    return unitMap[unit] || unit.charAt(0).toUpperCase() + unit.slice(1);
+  };
 
   useEffect(() => {
     if (partiesData?.parties) {
@@ -110,18 +152,6 @@ const FinalStep = ({
       );
     }
   }, [partiesData]);
-
-  useEffect(() => {
-    if (productsData?.products) {
-      setProducts(
-        productsData.products.map((p) => ({
-          _id: p._id.toString(),
-          name: p.name,
-          price: 0,
-        }))
-      );
-    }
-  }, [productsData]);
 
   const prevStep = () =>
     setActiveStep((current) => (current > 0 ? current - 1 : current));
@@ -170,31 +200,37 @@ const FinalStep = ({
         {/* Desktop Grid View */}
         <div className="hidden md:block">
           <div className="grid grid-cols-12 gap-4 px-4 py-2 bg-gray-50 rounded-lg font-semibold text-gray-700 text-sm">
-            <div className="col-span-4">Product</div>
-            <div className="col-span-1 text-center">Qty</div>
+            <div className="col-span-3">Product</div>
+            <div className="col-span-2 text-center">Qty & Unit</div>
             <div className="col-span-2 text-right">Price</div>
             <div className="col-span-2 text-right">Discount</div>
             <div className="col-span-3 text-right">Amount</div>
           </div>
 
           {items.map((item, index) => {
+            const baseAmount = calculateBaseAmount(item, index);
             const discountAmount = getDiscountAmount(item, index);
             const itemTotal = calculateItemTotal(item, index);
+            const unitDisplay = getUnitDisplay(item);
+            const capitalizedUnit = capitalizeUnit(unitDisplay);
 
             return (
               <div
                 key={index}
                 className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors text-sm"
               >
-                <div className="col-span-4 text-gray-800 font-medium">
+                <div className="col-span-3 text-gray-800 font-medium">
                   {products.find((p) => p._id === item.productId)?.name ||
                     "Unknown Product"}
                 </div>
-                <div className="col-span-1 text-center text-gray-600">
-                  {item.quantity}
+                <div className="col-span-2 text-center text-gray-600">
+                  <div>{item.quantity}</div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {capitalizedUnit}
+                  </div>
                 </div>
                 <div className="col-span-2 text-right text-gray-600">
-                  ₹{getItemPrice(index).toLocaleString("en-IN")}
+                  ₹{baseAmount.toLocaleString("en-IN")}
                 </div>
                 <div className="col-span-2 text-right">
                   {item.discountPercentage && item.discountPercentage > 0 ? (
@@ -221,8 +257,11 @@ const FinalStep = ({
         {/* Mobile Card View */}
         <div className="md:hidden space-y-3">
           {items.map((item, index) => {
+            const baseAmount = calculateBaseAmount(item, index);
             const discountAmount = getDiscountAmount(item, index);
             const itemTotal = calculateItemTotal(item, index);
+            const unitDisplay = getUnitDisplay(item);
+            const capitalizedUnit = capitalizeUnit(unitDisplay);
 
             return (
               <div
@@ -238,11 +277,12 @@ const FinalStep = ({
 
                 <div className="grid grid-cols-2 gap-2 text-xs mb-2">
                   <div className="text-gray-600">
-                    <span className="font-medium">Qty :</span> {item.quantity}
+                    <span className="font-medium">Qty :</span> {item.quantity}{" "}
+                    {capitalizedUnit}
                   </div>
                   <div className="text-gray-600 text-right">
                     <span className="font-medium">Price :</span> ₹
-                    {getItemPrice(index).toLocaleString("en-IN")}
+                    {baseAmount.toLocaleString("en-IN")}
                   </div>
                 </div>
 

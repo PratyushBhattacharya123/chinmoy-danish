@@ -18,7 +18,11 @@ import {
 } from "react-hook-form";
 import { FaTrashCan } from "react-icons/fa6";
 import { FiArrowLeft, FiPlus, FiX } from "react-icons/fi";
-import { useMutation } from "@tanstack/react-query";
+import {
+  QueryObserverResult,
+  RefetchOptions,
+  useMutation,
+} from "@tanstack/react-query";
 import {
   AddBill,
   AddCategory,
@@ -28,9 +32,11 @@ import {
 } from "@/@types";
 import toast from "react-hot-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useCategoriesData, useProductsData } from "@/hooks/use-queries";
+import { useCategoriesData } from "@/hooks/use-queries";
 import CustomLoader from "@/components/common/CustomLoader";
-import { ProductPriceMap } from "./StepperMain";
+import { capitalize } from "@/components/utils/helper";
+import { EnrichedProductsResponse } from "@/@types/server/response";
+import { ProductPriceMap } from "@/app/operator/bills/invoices/add-invoice/page";
 
 type Props = {
   setValue: UseFormSetValue<AddBill>;
@@ -40,10 +46,59 @@ type Props = {
   setActiveStep: React.Dispatch<React.SetStateAction<number>>;
   containerRef: React.RefObject<HTMLDivElement | null>;
   setProductPrices: React.Dispatch<React.SetStateAction<ProductPriceMap>>;
-  getItemPrice: (index: number) => number;
+  getItemPrice: (
+    item: {
+      productId: string;
+      quantity: number;
+      discountPercentage?: number | undefined;
+      isSubUnit?: boolean | undefined;
+    },
+    index: number
+  ) => number;
+  products: {
+    _id: string;
+    name: string;
+    price: number;
+    unit: string;
+    hasSubUnit?: boolean | undefined;
+    subUnit?:
+      | {
+          unit: string;
+          conversionRate: number;
+        }
+      | undefined;
+  }[];
+  calculateItemTotal: (
+    item: {
+      productId: string;
+      quantity: number;
+      discountPercentage?: number | undefined;
+      isSubUnit?: boolean | undefined;
+    },
+    index: number
+  ) => number;
+  getDiscountAmount: (
+    item: {
+      productId: string;
+      quantity: number;
+      discountPercentage?: number | undefined;
+      isSubUnit?: boolean | undefined;
+    },
+    index: number
+  ) => number;
+  refetchProducts: (options?: RefetchOptions | undefined) => Promise<
+    QueryObserverResult<
+      {
+        products: EnrichedProductsResponse[];
+        count: number;
+      },
+      Error
+    >
+  >;
+  isLoading: boolean;
 };
 
-const ItemDetatilsStep = ({
+const ItemDetailsStep = ({
   setValue,
   watch,
   control,
@@ -52,11 +107,12 @@ const ItemDetatilsStep = ({
   containerRef,
   setProductPrices,
   getItemPrice,
+  products,
+  calculateItemTotal,
+  getDiscountAmount,
+  refetchProducts,
+  isLoading,
 }: Props) => {
-  const [products, setProducts] = useState<
-    { _id: string; name: string; price: number }[]
-  >([]);
-
   const [categories, setCategories] = useState<
     { _id: string; title: string }[]
   >([]);
@@ -75,14 +131,6 @@ const ItemDetatilsStep = ({
   }, []);
 
   // Fetch data
-  const {
-    data: productsData,
-    refetch: refetchProducts,
-    isLoading,
-  } = useProductsData({
-    limit: 1000,
-    offset: 0,
-  });
 
   const {
     data: categoriesData,
@@ -95,7 +143,7 @@ const ItemDetatilsStep = ({
     name: "items",
   });
 
-  // Product form
+  // Product form with subunit functionality
   const {
     register: registerProduct,
     handleSubmit: handleSubmitProduct,
@@ -103,34 +151,101 @@ const ItemDetatilsStep = ({
     formState: { errors: productErrors },
     reset: resetProduct,
     setValue: setProductValue,
-  } = useForm({
+  } = useForm<AddProduct>({
     resolver: zodResolver(productFormSchema),
-    defaultValues: { unit: "pcs" },
+    defaultValues: {
+      unit: "pcs",
+      hasSubUnit: false,
+    },
   });
+
+  // Watch product form values for subunit functionality
+  const unitValue = watchProduct("unit");
+  const hasSubUnitValue = watchProduct("hasSubUnit");
+  const subUnitValue = watchProduct("subUnit");
 
   const handleHSNChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/[^0-9]/g, "").slice(0, 8);
     setProductValue("hsnCode", value, { shouldValidate: true });
   };
 
+  // Subunit logic for product form
+  useEffect(() => {
+    if (!hasSubUnitValue) {
+      setProductValue("subUnit", undefined);
+    } else {
+      const defaultSubUnits: Record<string, string> = {
+        boxes: "pcs",
+        pipes: "feets",
+        rolls: "mtrs",
+      };
+
+      const defaultSubUnit = defaultSubUnits[unitValue];
+      if (
+        defaultSubUnit &&
+        (!subUnitValue?.unit || !isValidSubUnit(unitValue, subUnitValue.unit))
+      ) {
+        setProductValue(
+          "subUnit.unit",
+          defaultSubUnit as "pcs" | "feets" | "mtrs"
+        );
+      }
+    }
+  }, [unitValue, hasSubUnitValue, setProductValue, subUnitValue]);
+
+  const isValidSubUnit = (
+    mainUnit: string,
+    subUnit: string | undefined
+  ): boolean => {
+    const validSubUnits: Record<string, string[]> = {
+      boxes: ["pcs"],
+      pipes: ["feets"],
+      rolls: ["mtrs"],
+    };
+    return validSubUnits[mainUnit]?.includes(subUnit || "") || false;
+  };
+
+  const getAvailableSubUnits = (mainUnit: string) => {
+    const subUnitOptions: Record<string, { value: string; label: string }[]> = {
+      boxes: [{ value: "pcs", label: "Pieces" }],
+      pipes: [{ value: "feets", label: "Feets" }],
+      rolls: [{ value: "mtrs", label: "Metres" }],
+    };
+    return subUnitOptions[mainUnit] || [];
+  };
+
+  const supportsSubUnits = ["boxes", "pipes", "rolls"].includes(unitValue);
+
   const handleCancelProductCreation = () => {
     // Get the current quantity and price from the form
     const currentQuantity =
-      watch(`items.${currentItemIndex || 0}.quantity`) || 1;
+      watch(`items.${currentItemIndex || 0}.quantity`) || 0;
     const currentDiscountPercentage =
       watch(`items.${currentItemIndex || 0}.discountPercentage`) || 0;
+    const currentIsSubUnit =
+      watch(`items.${currentItemIndex || 0}.isSubUnit`) || false;
 
     // Update the item with preserved quantity and price, but empty productId
     setValue(`items.${currentItemIndex || 0}`, {
       productId: "",
       quantity: currentQuantity,
       discountPercentage: currentDiscountPercentage,
+      isSubUnit: currentIsSubUnit,
     });
+
+    if (currentItemIndex !== undefined) {
+      setProductPrices((prev) => {
+        const newPrices = { ...prev };
+        delete newPrices[currentItemIndex];
+        return newPrices;
+      });
+    }
 
     // Close the product creation form
     setShowAddProduct(false);
     setCurrentItemIndex(undefined);
     setSelectedCategory("");
+    resetProduct();
   };
 
   // Category form
@@ -158,26 +273,22 @@ const ItemDetatilsStep = ({
     }
   };
 
-  // Calculate item totals with discount
-  const calculateItemTotal = (index: number) => {
-    const item = items?.[index];
-    if (!item) return 0;
-
-    const itemPrice = getItemPrice(index);
-    const baseAmount = (item.quantity || 0) * itemPrice;
-    const discountAmount = item.discountPercentage
-      ? (baseAmount * (item.discountPercentage || 0)) / 100
-      : 0;
-
-    return Math.max(0, baseAmount - discountAmount);
+  // Check if product supports subunits
+  const productSupportsSubUnits = (productId: string) => {
+    const product = products.find((p) => p._id === productId);
+    return product?.hasSubUnit && product?.subUnit;
   };
 
   const totalAmount =
-    items?.reduce((sum, _, index) => sum + calculateItemTotal(index), 0) || 0;
+    items?.reduce(
+      (sum, item, index) => sum + calculateItemTotal(item, index),
+      0
+    ) || 0;
 
   // Handle discount input changes
   const handleDiscountPercentageChange = (index: number, value: number) => {
-    const itemPrice = getItemPrice(index);
+    const item = items?.[index];
+    const itemPrice = getItemPrice(item, index);
     if (itemPrice === 0) {
       toast.error("Please set price first");
       return;
@@ -189,26 +300,51 @@ const ItemDetatilsStep = ({
     setValue(`items.${index}.discountPercentage`, value || 0);
   };
 
-  // Get discount amount for display
-  const getDiscountAmount = (index: number) => {
-    const item = items?.[index];
-    if (!item) return 0;
-    const itemPrice = getItemPrice(index);
+  // Handle subunit toggle
+  const handleSubUnitToggle = (index: number, checked: boolean) => {
+    const productId = items?.[index]?.productId;
+    if (!productId) {
+      toast.error("Please select a product first");
+      return;
+    }
 
-    return (itemPrice * (item.discountPercentage || 0)) / 100;
+    if (checked && !productSupportsSubUnits(productId)) {
+      toast.error("This product does not support subunits");
+      return;
+    }
+
+    setValue(`items.${index}.isSubUnit`, checked);
   };
 
-  useEffect(() => {
-    if (productsData?.products) {
-      setProducts(
-        productsData.products.map((p) => ({
-          _id: p._id.toString(),
-          name: p.name,
-          price: p.price,
-        }))
-      );
+  // Get unit display for an item
+  const getUnitDisplay = (index: number) => {
+    const item = items?.[index];
+    if (!item?.productId) return "";
+
+    const product = products.find((p) => p._id === item.productId);
+    if (!product) return "";
+
+    if (item.isSubUnit && product.subUnit) {
+      return product.subUnit.unit;
     }
-  }, [productsData]);
+
+    return product.unit;
+  };
+
+  // Get conversion info for display
+  const getConversionInfo = (index: number) => {
+    const item = items?.[index];
+    if (!item?.productId || !item.isSubUnit) return null;
+
+    const product = products.find((p) => p._id === item.productId);
+    if (!product?.subUnit) return null;
+
+    return {
+      mainUnit: product.unit,
+      subUnit: product.subUnit.unit,
+      rate: product.subUnit.conversionRate,
+    };
+  };
 
   useEffect(() => {
     if (categoriesData?.categories) {
@@ -267,10 +403,16 @@ const ItemDetatilsStep = ({
   // Create product mutation
   const { mutate: createProduct, isPending: isCreatingProduct } = useMutation({
     mutationFn: async (data: AddProduct) => {
+      const productData: AddProduct = {
+        ...data,
+        unit: data.unit || "pcs",
+        ...(data.hasSubUnit ? {} : { subUnit: undefined }),
+      };
+
       const response = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(productData),
       });
 
       const responseData = await response.json();
@@ -366,8 +508,15 @@ const ItemDetatilsStep = ({
                   className="p-4 border border-gray-200 rounded-lg relative flex flex-col sm:gap-4 gap-2 sm:pb-6"
                   key={field.id}
                 >
-                  <div className="grid grid-cols-1 md:grid-cols-15 sm:gap-6 gap-4 items-start relative">
-                    <div className="md:col-span-6 flex items-end sm:gap-4 gap-3">
+                  <div
+                    className={`grid grid-cols-1 ${
+                      watch(`items.${index}.productId`) &&
+                      productSupportsSubUnits(items?.[index]?.productId || "")
+                        ? "md:grid-cols-18"
+                        : "md:grid-cols-14"
+                    } sm:gap-6 gap-4 items-start relative`}
+                  >
+                    <div className="md:col-span-5 flex items-end sm:gap-4 gap-3">
                       <Controller
                         name={`items.${index}.productId`}
                         control={control}
@@ -407,6 +556,8 @@ const ItemDetatilsStep = ({
                         onClick={() => {
                           setCurrentItemIndex(index);
                           setShowAddProduct(true);
+                          setValue(`items.${index}.quantity`, 0);
+                          setValue(`items.${index}.discountPercentage`, 0);
                         }}
                         className="!text-gray-700 !border-gray-400 hover:!bg-gray-100"
                       >
@@ -425,7 +576,8 @@ const ItemDetatilsStep = ({
                               </span>
                             }
                             placeholder="Enter quantity"
-                            min={1}
+                            min={0}
+                            allowNegative={false}
                             value={field.value}
                             onChange={(val) => field.onChange(val)}
                             error={errors.items?.[index]?.quantity?.message}
@@ -441,6 +593,69 @@ const ItemDetatilsStep = ({
                         )}
                       />
                     </div>
+
+                    {watch(`items.${index}.productId`) &&
+                      productSupportsSubUnits(
+                        items?.[index]?.productId || ""
+                      ) && (
+                        <>
+                          {/* Unit Display */}
+                          <div className="md:col-span-2">
+                            <div className="space-y-1">
+                              <div className="text-sm font-medium text-gray-700 mb-1">
+                                Unit
+                              </div>
+                              <div className="h-10 flex items-center px-3 border border-gray-300 rounded-md bg-gray-50 text-gray-600 text-sm">
+                                {capitalize(getUnitDisplay(index))}
+                              </div>
+                              {getConversionInfo(index) && (
+                                <div className="text-xs text-gray-500">
+                                  1 {getConversionInfo(index)?.mainUnit} ={" "}
+                                  {getConversionInfo(index)?.rate}{" "}
+                                  {getConversionInfo(index)?.subUnit}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* SubUnit Toggle */}
+                          <div className="md:col-span-2 h-full flex items-center">
+                            <Controller
+                              name={`items.${index}.isSubUnit`}
+                              control={control}
+                              render={({ field }) => (
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    id="hasSubUnit"
+                                    checked={field.value || false}
+                                    onChange={(event) =>
+                                      handleSubUnitToggle(
+                                        index,
+                                        event.currentTarget.checked
+                                      )
+                                    }
+                                    disabled={
+                                      !productSupportsSubUnits(
+                                        items?.[index]?.productId || ""
+                                      )
+                                    }
+                                    className="w-4 h-4 text-gray-600 bg-gray-100 border-gray-300 rounded focus:ring-gray-500 cursor-pointer"
+                                    style={{ accentColor: "#475569" }}
+                                  />
+                                  <label
+                                    htmlFor="hasSubUnit"
+                                    className="text-sm font-medium text-gray-700"
+                                  >
+                                    Bill in Sub Unit
+                                  </label>
+                                </div>
+                              )}
+                            />
+                          </div>
+                        </>
+                      )}
+
                     <div className="md:col-span-2">
                       <NumberInput
                         label={
@@ -450,10 +665,9 @@ const ItemDetatilsStep = ({
                         }
                         placeholder="Price will auto-fill"
                         min={0}
-                        value={getItemPrice(index)}
+                        value={getItemPrice(items?.[index], index)}
                         readOnly
                         hideControls
-                        required
                         classNames={{
                           input:
                             "!border-gray-300 !bg-gray-100 !text-gray-600 !rounded-md",
@@ -501,10 +715,19 @@ const ItemDetatilsStep = ({
                         />
                         {(items?.[index]?.discountPercentage || 0) > 0 && (
                           <div className="text-xs text-gray-600 flex justify-between">
-                            <span>₹{getDiscountAmount(index).toFixed(2)}</span>
+                            <span>
+                              ₹
+                              {(
+                                getDiscountAmount(items[index], index) /
+                                items?.[index].quantity
+                              ).toFixed(2)}
+                            </span>
                             <span>
                               Base : ₹
-                              {getItemPrice(index).toLocaleString("en-IN")}
+                              {getItemPrice(
+                                items?.[index],
+                                index
+                              ).toLocaleString("en-IN")}
                             </span>
                           </div>
                         )}
@@ -515,14 +738,24 @@ const ItemDetatilsStep = ({
                         Total
                       </div>
                       <div className="text-lg font-bold text-gray-700">
-                        ₹{calculateItemTotal(index).toLocaleString("en-IN")}
+                        ₹
+                        {calculateItemTotal(items[index], index).toLocaleString(
+                          "en-IN"
+                        )}
                       </div>
                     </div>
 
                     {fields.length > 1 && (
                       <div
                         className="absolute bottom-2 right-1 text-red-500 cursor-pointer sm:hidden hover:text-red-600"
-                        onClick={() => remove(index)}
+                        onClick={() => {
+                          remove(index);
+                          setProductPrices((prev) => {
+                            const newPrices = { ...prev };
+                            delete newPrices[index];
+                            return newPrices;
+                          });
+                        }}
                       >
                         <FaTrashCan size={14} />
                       </div>
@@ -532,7 +765,14 @@ const ItemDetatilsStep = ({
                   {fields.length > 1 && (
                     <div
                       className="absolute top-3.5 right-3.5 text-red-500 cursor-pointer hidden sm:block hover:text-red-600"
-                      onClick={() => remove(index)}
+                      onClick={() => {
+                        remove(index);
+                        setProductPrices((prev) => {
+                          const newPrices = { ...prev };
+                          delete newPrices[index];
+                          return newPrices;
+                        });
+                      }}
                     >
                       <FaTrashCan size={14} />
                     </div>
@@ -576,7 +816,7 @@ const ItemDetatilsStep = ({
                       variant="filled"
                     />
 
-                    <div className="flex sm:flex-row flex-col sm:gap-6 gap-4">
+                    <div className="flex sm:flex-row flex-col sm:gap-4 gap-3">
                       <TextInput
                         type="text"
                         label={
@@ -657,6 +897,31 @@ const ItemDetatilsStep = ({
                         hideControls
                         prefix="₹"
                       />
+                    </div>
+
+                    <div className="flex sm:flex-row flex-col sm:gap-4 gap-3">
+                      <NumberInput
+                        label={
+                          <span className="font-medium text-gray-700">
+                            Current Stock (optional)
+                          </span>
+                        }
+                        placeholder="Enter current stock here..."
+                        value={watchProduct("quantity")}
+                        onChange={(value) => {
+                          setProductValue("quantity", value as number);
+                        }}
+                        classNames={{
+                          input:
+                            "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
+                          label: "!mb-1 !text-gray-700",
+                        }}
+                        className="w-full"
+                        error={productErrors.quantity?.message}
+                        variant="filled"
+                        allowNegative={false}
+                        hideControls
+                      />
 
                       <Select
                         label={
@@ -668,31 +933,145 @@ const ItemDetatilsStep = ({
                         data={[
                           { value: "pcs", label: "Pieces" },
                           { value: "boxes", label: "Boxes" },
-                          { value: "bags", label: "Bags" },
+                          { value: "pipes", label: "Pipes" },
                           { value: "rolls", label: "Rolls" },
                         ]}
                         defaultValue="pcs"
                         onChange={(value) => {
-                          if (value)
+                          if (value) {
                             setProductValue(
                               "unit",
-                              value as "pcs" | "boxes" | "bags" | "rolls",
+                              value as "pcs" | "boxes" | "pipes" | "rolls",
                               {
                                 shouldValidate: true,
                               }
                             );
+                            if (!["boxes", "pipes", "rolls"].includes(value)) {
+                              setProductValue("hasSubUnit", false);
+                            }
+                          }
                         }}
                         classNames={{
                           input:
                             "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
                           label: "!mb-1 !text-gray-700",
                         }}
-                        className="w-full"
+                        className="!w-full"
                         error={productErrors.unit?.message}
                         variant="filled"
                         required
                       />
                     </div>
+
+                    {/* SubUnit Configuration */}
+                    {supportsSubUnits && (
+                      <div className="space-y-3 p-4 border border-gray-200 rounded-md bg-gray-50">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="hasSubUnitProduct"
+                            checked={hasSubUnitValue}
+                            onChange={(event) => {
+                              setProductValue(
+                                "hasSubUnit",
+                                event.currentTarget.checked,
+                                {
+                                  shouldValidate: true,
+                                }
+                              );
+                            }}
+                            className="w-4 h-4 text-gray-600 bg-gray-100 border-gray-300 rounded focus:ring-gray-500 cursor-pointer"
+                            style={{ accentColor: "#475569" }}
+                          />
+                          <label
+                            htmlFor="hasSubUnitProduct"
+                            className="text-sm font-medium text-gray-700"
+                          >
+                            Enable Sub Unit
+                          </label>
+                        </div>
+
+                        {hasSubUnitValue && (
+                          <div className="flex sm:flex-row flex-col sm:gap-4 gap-3 mt-3 sm:items-end">
+                            <Select
+                              label={
+                                <span className="font-medium text-gray-700">
+                                  Sub Unit
+                                </span>
+                              }
+                              placeholder="Select sub unit"
+                              data={getAvailableSubUnits(unitValue)}
+                              value={subUnitValue?.unit || ""}
+                              onChange={(value) => {
+                                if (value) {
+                                  setProductValue(
+                                    "subUnit.unit",
+                                    value as "pcs" | "feets" | "mtrs",
+                                    {
+                                      shouldValidate: true,
+                                    }
+                                  );
+                                }
+                              }}
+                              classNames={{
+                                input:
+                                  "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
+                                label: "!mb-1 !text-gray-700",
+                              }}
+                              className="w-full"
+                              error={productErrors.subUnit?.unit?.message}
+                              variant="filled"
+                              required
+                            />
+
+                            <NumberInput
+                              label={
+                                <span className="font-medium text-gray-700">
+                                  Conversion Rate
+                                </span>
+                              }
+                              placeholder="e.g., 1000"
+                              description={`1 ${unitValue} = ${
+                                subUnitValue?.conversionRate
+                                  ? subUnitValue?.conversionRate
+                                  : "?"
+                              } ${
+                                subUnitValue?.unit ||
+                                getAvailableSubUnits(unitValue)[0]?.label
+                              }`}
+                              value={subUnitValue?.conversionRate || ""}
+                              onChange={(value) => {
+                                if (value !== "") {
+                                  setProductValue(
+                                    "subUnit.conversionRate",
+                                    value as number,
+                                    {
+                                      shouldValidate: true,
+                                    }
+                                  );
+                                }
+                              }}
+                              classNames={{
+                                input:
+                                  "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
+                                label: "!mb-1 !text-gray-700",
+                                description: "!text-gray-500 !text-xs",
+                              }}
+                              className="w-full"
+                              error={
+                                productErrors.subUnit?.conversionRate?.message
+                              }
+                              variant="filled"
+                              allowNegative={false}
+                              min={0.001}
+                              step={0.001}
+                              hideControls
+                              required
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <div className="flex gap-2 items-end">
                       <div className="flex-1">
@@ -783,27 +1162,7 @@ const ItemDetatilsStep = ({
                       )}
                     </div>
 
-                    <div className="flex sm:flex-row flex-col sm:gap-6 gap-4">
-                      <NumberInput
-                        label={
-                          <span className="font-medium text-gray-700">
-                            Price
-                          </span>
-                        }
-                        placeholder="Price will auto-fill"
-                        min={0}
-                        value={getItemPrice(index)}
-                        readOnly
-                        hideControls
-                        required
-                        classNames={{
-                          input:
-                            "!border-gray-300 !bg-gray-100 !text-gray-600 !rounded-md",
-                          label: "!mb-1 !text-gray-700",
-                        }}
-                        variant="filled"
-                      />
-
+                    <div className="flex sm:flex-row flex-col gap-4">
                       <Controller
                         name={`items.${currentItemIndex || 0}.quantity`}
                         control={control}
@@ -815,7 +1174,8 @@ const ItemDetatilsStep = ({
                               </span>
                             }
                             placeholder="Enter quantity"
-                            min={1}
+                            min={0}
+                            allowNegative={false}
                             value={field.value}
                             onChange={(val) => field.onChange(val)}
                             error={
@@ -873,10 +1233,19 @@ const ItemDetatilsStep = ({
                         />
                         {(items?.[index]?.discountPercentage || 0) > 0 && (
                           <div className="text-xs text-gray-600 flex justify-between">
-                            <span>₹{getDiscountAmount(index).toFixed(2)}</span>
+                            <span>
+                              ₹
+                              {(
+                                getDiscountAmount(items[index], index) /
+                                items?.[index].quantity
+                              ).toFixed(2)}
+                            </span>
                             <span>
                               Base : ₹
-                              {getItemPrice(index).toLocaleString("en-IN")}
+                              {getItemPrice(
+                                items?.[index],
+                                index
+                              ).toLocaleString("en-IN")}
                             </span>
                           </div>
                         )}
@@ -910,8 +1279,9 @@ const ItemDetatilsStep = ({
             onClick={() => {
               append({
                 productId: "",
-                quantity: 1,
+                quantity: 0,
                 discountPercentage: 0,
+                isSubUnit: undefined,
               });
               setShowAddProduct(false);
               setCurrentItemIndex(undefined);
@@ -949,4 +1319,4 @@ const ItemDetatilsStep = ({
   );
 };
 
-export default ItemDetatilsStep;
+export default ItemDetailsStep;

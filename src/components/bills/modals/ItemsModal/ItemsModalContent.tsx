@@ -15,9 +15,52 @@ const ItemsModalContent = ({
 }>) => {
   const { items, addOns = [], totalAmount } = innerProps;
 
-  // Helpers
+  // Helper function to get unit display
+  const getUnitDisplay = (item: EnrichedItem): string => {
+    if (!item.productDetails) return "";
+
+    // If billing in subunit and product supports subunits, show subunit
+    if (item.productDetails.hasSubUnit && item.productDetails.subUnit) {
+      return item.productDetails.subUnit.unit;
+    }
+
+    // Otherwise show main unit
+    return item.productDetails.unit;
+  };
+
+  // Helper function to capitalize unit names
+  const capitalizeUnit = (unit: string): string => {
+    const unitMap: { [key: string]: string } = {
+      pcs: "Pieces",
+      boxes: "Boxes",
+      pipes: "Pipes",
+      rolls: "Rolls",
+      bags: "Bags",
+      feets: "Feets",
+      mtrs: "Metres",
+    };
+    return unitMap[unit] || unit.charAt(0).toUpperCase() + unit.slice(1);
+  };
+
+  // Helper function to get effective price (considering subunit conversion)
+  const getEffectivePrice = (item: EnrichedItem): number => {
+    if (!item.productDetails) return 0;
+
+    // If billing in subunit, divide price by conversion rate
+    if (item.productDetails.hasSubUnit && item.productDetails.subUnit) {
+      return (
+        item.productDetails.price / item.productDetails.subUnit.conversionRate
+      );
+    }
+
+    // Otherwise return original price
+    return item.productDetails.price;
+  };
+
+  // Calculate item total with subunit consideration
   const calculateItemTotal = (item: EnrichedItem) => {
-    const base = (item.quantity || 0) * (item.productDetails?.price || 0);
+    const effectivePrice = getEffectivePrice(item);
+    const base = (item.quantity || 0) * effectivePrice;
     const discount = item.discountPercentage
       ? (base * (item.discountPercentage || 0)) / 100
       : 0;
@@ -25,21 +68,34 @@ const ItemsModalContent = ({
   };
 
   const getDiscountAmount = (item: EnrichedItem) => {
-    const base = (item.quantity || 0) * (item.productDetails?.price || 0);
+    const effectivePrice = getEffectivePrice(item);
+    const base = (item.quantity || 0) * effectivePrice;
     return (base * (item.discountPercentage || 0)) / 100;
+  };
+
+  // Calculate base amount for display (without discount)
+  const getBaseAmount = (item: EnrichedItem) => {
+    const effectivePrice = getEffectivePrice(item);
+    return (item.quantity || 0) * effectivePrice;
   };
 
   // Totals
   const itemsSubtotal = items.reduce(
-    (sum, i) => sum + i.quantity * (i.productDetails?.price || 0),
+    (sum, item) => sum + getBaseAmount(item),
     0
   );
-  const totalDiscount = items.reduce((sum, i) => sum + getDiscountAmount(i), 0);
-  const itemsTotal = items.reduce((sum, i) => sum + calculateItemTotal(i), 0);
+  const totalDiscount = items.reduce(
+    (sum, item) => sum + getDiscountAmount(item),
+    0
+  );
+  const itemsTotal = items.reduce(
+    (sum, item) => sum + calculateItemTotal(item),
+    0
+  );
   const addOnsTotal = addOns.reduce((sum, a) => sum + (a.price || 0), 0);
-  const totalQuantity = items.reduce((sum, i) => sum + i.quantity, 0);
+  const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
   const itemsWithDiscount = items.filter(
-    (i) => i.discountPercentage && i.discountPercentage > 0
+    (item) => item.discountPercentage && item.discountPercentage > 0
   ).length;
 
   return (
@@ -81,10 +137,10 @@ const ItemsModalContent = ({
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            {/* Header */}
+            {/* Desktop Header */}
             <div className="hidden md:grid md:grid-cols-12 gap-4 px-4 py-3 bg-gray-700 text-white font-semibold text-sm">
-              <div className="col-span-5">Product</div>
-              <div className="col-span-1 text-center">Qty</div>
+              <div className="col-span-4">Product</div>
+              <div className="col-span-2 text-center">Qty & Unit</div>
               <div className="col-span-2 text-center">Price</div>
               <div className="col-span-2 text-center">Discount</div>
               <div className="col-span-2 text-center">Amount</div>
@@ -92,8 +148,8 @@ const ItemsModalContent = ({
 
             {/* Mobile Header */}
             <div className="md:hidden grid grid-cols-12 gap-2 px-3 py-2 bg-gray-700 text-white font-semibold text-xs">
-              <div className="col-span-6">Product</div>
-              <div className="col-span-2 text-center">Qty</div>
+              <div className="col-span-5">Product</div>
+              <div className="col-span-3 text-center">Qty & Unit</div>
               <div className="col-span-4 text-center">Amount</div>
             </div>
 
@@ -101,32 +157,47 @@ const ItemsModalContent = ({
               {items.map((item, index) => {
                 const discount = getDiscountAmount(item);
                 const total = calculateItemTotal(item);
+                const effectivePrice = getEffectivePrice(item);
+                const unitDisplay = getUnitDisplay(item);
+                const capitalizedUnit = capitalizeUnit(unitDisplay);
+                const isSubUnit =
+                  item.productDetails?.hasSubUnit &&
+                  item.productDetails?.subUnit;
+
                 return (
                   <div key={index}>
-                    {/* Desktop */}
+                    {/* Desktop View */}
                     <div className="hidden md:grid md:grid-cols-12 gap-4 px-4 py-3 hover:bg-gray-50 transition-colors duration-150">
-                      <div className="col-span-5">
+                      <div className="col-span-4">
                         <div className="font-medium text-gray-900 text-sm">
                           {item.productDetails?.name || "Unknown Product"}
                         </div>
                         <div className="text-xs text-gray-500 mt-0.5">
-                          ₹{item.productDetails?.price.toLocaleString("en-IN")}{" "}
-                          × {item.quantity}
+                          ₹{effectivePrice.toFixed(2)} × {item.quantity}
                         </div>
                       </div>
-                      <div className="col-span-1 flex items-center justify-center">
+                      <div className="col-span-2 flex flex-col items-center justify-center">
                         <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-sm font-medium border border-gray-300">
                           {item.quantity}
                         </span>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {capitalizedUnit}
+                        </div>
                       </div>
-                      <div className="col-span-2 flex items-center justify-center text-gray-600 text-sm">
-                        ₹{item.productDetails?.price.toLocaleString("en-IN")}
+                      <div className="col-span-2 flex flex-col items-center justify-center text-gray-600 text-sm">
+                        <div>₹{effectivePrice.toFixed(2)}</div>
+                        {isSubUnit && item.productDetails && (
+                          <div className="text-xs text-gray-500">
+                            {item.productDetails.price.toLocaleString("en-IN")}{" "}
+                            / {item.productDetails.unit}
+                          </div>
+                        )}
                       </div>
                       <div className="col-span-2 flex items-center justify-center">
                         {item.discountPercentage ? (
                           <div className="text-center space-y-1">
                             <div className="text-red-500 text-xs font-medium">
-                              -₹{discount.toLocaleString("en-IN")}
+                              -₹{discount.toFixed(2)}
                             </div>
                             <div className="text-gray-500 text-xs">
                               ({item.discountPercentage}%)
@@ -137,37 +208,44 @@ const ItemsModalContent = ({
                         )}
                       </div>
                       <div className="col-span-2 flex items-center justify-center text-gray-800 font-medium text-sm">
-                        ₹{total.toLocaleString("en-IN")}
+                        ₹{total.toFixed(2)}
                       </div>
                     </div>
 
-                    {/* Mobile */}
+                    {/* Mobile View */}
                     <div className="md:hidden grid grid-cols-12 gap-2 px-3 py-2 hover:bg-gray-50 transition-colors duration-150">
-                      <div className="col-span-6">
+                      <div className="col-span-5">
                         <div className="font-medium text-gray-900 text-xs">
                           {item.productDetails?.name || "Unknown Product"}
                         </div>
                         <div className="text-xs text-gray-500 mt-0.5">
-                          ₹{item.productDetails?.price.toLocaleString("en-IN")}{" "}
-                          × {item.quantity}
+                          ₹{effectivePrice.toFixed(2)} × {item.quantity}
                         </div>
                         {item.discountPercentage && (
                           <div className="mt-1 flex items-center gap-1">
                             <FiTag className="text-red-500 size-3" />
                             <span className="text-red-500 text-xs font-medium">
                               {item.discountPercentage}% off (-₹
-                              {discount.toLocaleString("en-IN")})
+                              {discount.toFixed(2)})
                             </span>
                           </div>
                         )}
                       </div>
-                      <div className="col-span-2 flex items-center justify-center">
+                      <div className="col-span-3 flex flex-col items-center justify-center">
                         <span className="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded-full text-xs font-medium border border-gray-300">
                           {item.quantity}
                         </span>
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          {!isSubUnit && capitalizedUnit}
+                        </div>
                       </div>
-                      <div className="col-span-4 flex items-center justify-center text-gray-800 font-medium text-xs">
-                        ₹{total.toLocaleString("en-IN")}
+                      <div className="col-span-4 flex flex-col items-center justify-center text-gray-800 font-medium text-xs">
+                        <div>₹{total.toFixed(2)}</div>
+                        {isSubUnit && (
+                          <div className="text-gray-500 text-xs mt-0.5 text-center">
+                            {capitalizedUnit}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -205,7 +283,7 @@ const ItemsModalContent = ({
                       {addOn.title}
                     </div>
                     <div className="col-span-3 md:col-span-2 flex items-center justify-center text-gray-800 font-medium text-xs md:text-sm">
-                      ₹{addOn.price.toLocaleString("en-IN")}
+                      ₹{addOn.price.toFixed(2)}
                     </div>
                   </div>
                 ))}
@@ -222,14 +300,14 @@ const ItemsModalContent = ({
                 <div className="flex justify-between items-center text-sm md:text-base">
                   <span className="text-gray-700">Products Subtotal :</span>
                   <span className="font-medium">
-                    ₹{itemsSubtotal.toLocaleString("en-IN")}
+                    ₹{itemsSubtotal.toFixed(2)}
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center text-sm md:text-base">
                   <span className="text-gray-700">Total Discount :</span>
                   <span className="font-medium text-red-600">
-                    -₹{totalDiscount.toLocaleString("en-IN")}
+                    -₹{totalDiscount.toFixed(2)}
                   </span>
                 </div>
               </>
@@ -240,16 +318,14 @@ const ItemsModalContent = ({
                 Products Total :
               </span>
               <span className="font-medium text-gray-800">
-                ₹{itemsTotal.toLocaleString("en-IN")}
+                ₹{itemsTotal.toFixed(2)}
               </span>
             </div>
 
             {addOns.length > 0 && (
               <div className="flex justify-between items-center text-sm md:text-base pt-2">
                 <span className="text-gray-700">Additional Charges :</span>
-                <span className="font-medium">
-                  ₹{addOnsTotal.toLocaleString("en-IN")}
-                </span>
+                <span className="font-medium">₹{addOnsTotal.toFixed(2)}</span>
               </div>
             )}
 
@@ -262,7 +338,7 @@ const ItemsModalContent = ({
                   </span>
                 </div>
                 <div className="text-xl md:text-2xl font-bold text-gray-800 bg-white px-3 md:px-4 py-1.5 md:py-2 rounded-full shadow-sm border border-gray-300">
-                  ₹{totalAmount.toLocaleString("en-IN")}
+                  ₹{totalAmount.toFixed(2)}
                 </div>
               </div>
             </div>
