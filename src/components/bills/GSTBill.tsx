@@ -141,9 +141,9 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
 
       // Calculate for regular items (with GST)
       items.forEach((item) => {
-        const unitPrice = item.productDetails?.hasSubUnit
-          ? item.productDetails?.price /
-              (item.productDetails.subUnit?.conversionRate || 1) || 0
+        const unitPrice = item.isSubUnit
+          ? (item.productDetails?.price || 0) /
+              (item.productDetails?.subUnit?.conversionRate || 1) || 0
           : item.productDetails?.price || 0;
         const quantity = item.quantity;
         const discountPercentage = item.discountPercentage || 0;
@@ -215,9 +215,9 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
     }
 
     // Regular product with GST
-    const unitPrice = item.productDetails?.hasSubUnit
-      ? item.productDetails?.price /
-          (item.productDetails.subUnit?.conversionRate || 1) || 0
+    const unitPrice = item.isSubUnit
+      ? (item.productDetails?.price || 0) /
+          (item.productDetails?.subUnit?.conversionRate || 1) || 0
       : item.productDetails?.price || 0;
     const quantity = item.quantity;
     const discountPercentage = item.discountPercentage || 0;
@@ -520,8 +520,8 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                   >
                     {isAddOn
                       ? ""
-                      : item.productDetails?.hasSubUnit
-                      ? capitalize(item.productDetails.subUnit?.unit || "pcs")
+                      : item.isSubUnit
+                      ? capitalize(item.productDetails?.subUnit?.unit || "pcs")
                       : capitalize(item.productDetails?.unit || "pcs")}
                   </td>
                   <td
