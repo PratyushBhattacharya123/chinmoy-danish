@@ -254,9 +254,10 @@ const Products = () => {
     columnHelper.accessor("currentStock", {
       id: "currentStock",
       cell: (info) => {
-        const stockValue = info.row.original.hasSubUnit
-          ? Number(info.getValue()).toFixed(2)
-          : Number(info.getValue());
+        const stockValue =
+          info.row.original.hasSubUnit === "true"
+            ? Number(info.getValue()).toFixed(2)
+            : Number(info.getValue());
         const config = getStockDisplayConfig(Number(stockValue));
         const IconComponent = config.icon;
 
