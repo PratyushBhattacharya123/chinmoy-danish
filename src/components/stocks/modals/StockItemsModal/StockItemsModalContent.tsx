@@ -262,7 +262,9 @@ const StockItemsModalContent = ({
                               : "bg-green-100 text-green-800 border-green-200"
                           }`}
                         >
-                          {item.productDetails?.currentStock.toFixed(2) || 0}
+                          {(item.isSubUnit
+                            ? item.productDetails?.currentStock.toFixed(2)
+                            : item.productDetails.currentStock) || 0}
                         </span>
                         {isSubUnit && (
                           <span className="text-xs text-blue-600 mt-0.5 capitalize">

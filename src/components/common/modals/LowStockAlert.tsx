@@ -118,7 +118,11 @@ const LowStockAlertModal = ({
                     <span className="sm:hidden">
                       {getStockLevelText(product.currentStock).split(" ")[0]} :{" "}
                     </span>
-                    {product.currentStock ? product.currentStock.toFixed(2) : 0}
+                    {product.currentStock
+                      ? product.hasSubUnit
+                        ? product.currentStock.toFixed(2)
+                        : product.currentStock
+                      : 0}
                   </span>
                 </div>
               </div>
