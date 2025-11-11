@@ -32,6 +32,7 @@ const SupplyDetailsStep = ({
   containerRef,
 }: Props) => {
   const invoiceDate = watch("invoiceDate");
+  const supplyDate = watch("supplyDetails.supplyDate");
 
   const validateCurrentStep = () => {
     const supplyPlace = watch("supplyDetails.supplyPlace");
@@ -123,17 +124,16 @@ const SupplyDetailsStep = ({
                 <span className="font-medium text-gray-700">Invoice Date</span>
               }
               placeholder="Select invoice date here..."
-              value={field.value ? new Date(field.value) : new Date()}
+              value={field.value ? new Date(field.value) : null}
               onChange={(date) => {
-                field.onChange(
-                  date ? new Date(date).toISOString() : new Date().toISOString()
-                );
+                field.onChange(date ? new Date(date).toISOString() : null);
               }}
               classNames={{
                 input:
                   "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
                 label: "!mb-1 !text-gray-700",
               }}
+              maxDate={supplyDate ? new Date(supplyDate) : undefined}
               className="w-full"
               error={errors.invoiceDate?.message}
               required
@@ -153,14 +153,14 @@ const SupplyDetailsStep = ({
               placeholder="Select supply date here..."
               value={field.value ? new Date(field.value) : null}
               onChange={(date) => {
-                field.onChange(date ? new Date(date).toISOString() : undefined);
+                field.onChange(date ? new Date(date).toISOString() : null);
               }}
               classNames={{
                 input:
                   "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
                 label: "!mb-1 !text-gray-700",
               }}
-              minDate={invoiceDate}
+              minDate={invoiceDate ? new Date(invoiceDate) : undefined}
               className="w-full"
               error={errors.supplyDetails?.supplyDate?.message}
               variant="filled"
