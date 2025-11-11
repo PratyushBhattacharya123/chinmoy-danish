@@ -121,6 +121,7 @@ const EditProductModalContent = ({
         boxes: "pcs",
         pipes: "feets",
         rolls: "mtrs",
+        kgs: "grams",
       };
 
       const defaultSubUnit = defaultSubUnits[unit];
@@ -128,10 +129,18 @@ const EditProductModalContent = ({
         defaultSubUnit &&
         (!subUnitValue?.unit || !isValidSubUnit(unit, subUnitValue.unit))
       ) {
-        setValue("subUnit.unit", defaultSubUnit as "pcs" | "feets" | "mtrs");
+        setValue(
+          "subUnit.unit",
+          defaultSubUnit as "pcs" | "feets" | "mtrs" | "grams"
+        );
+      }
+
+      // Set conversion rate to 1000 and make readonly for kgs
+      if (unitValue === "kgs") {
+        setValue("subUnit.conversionRate", 1000, { shouldValidate: true });
       }
     }
-  }, [unit, hasSubUnitValue, setValue, subUnitValue]);
+  }, [unit, unitValue, hasSubUnitValue, setValue, subUnitValue]);
 
   // Check if subunit is valid for the current main unit
   const isValidSubUnit = (
@@ -142,6 +151,7 @@ const EditProductModalContent = ({
       boxes: ["pcs"],
       pipes: ["feets"],
       rolls: ["mtrs"],
+      kgs: ["grams"],
     };
     return validSubUnits[mainUnit]?.includes(subUnit || "") || false;
   };
@@ -152,12 +162,13 @@ const EditProductModalContent = ({
       boxes: [{ value: "pcs", label: "Pieces" }],
       pipes: [{ value: "feets", label: "Feets" }],
       rolls: [{ value: "mtrs", label: "Metres" }],
+      kgs: [{ value: "grams", label: "Grams" }],
     };
     return subUnitOptions[mainUnit] || [];
   };
 
   // Check if current unit supports subunits
-  const supportsSubUnits = ["boxes", "pipes", "rolls"].includes(unit);
+  const supportsSubUnits = ["boxes", "pipes", "rolls", "kgs"].includes(unit);
 
   useEffect(() => {
     if (innerProps.data) {
@@ -212,7 +223,7 @@ const EditProductModalContent = ({
       ) {
         setValue("hasSubUnit", true);
         setValue("subUnit", {
-          unit: parsedSubUnit.unit as "pcs" | "feets" | "mtrs",
+          unit: parsedSubUnit.unit as "pcs" | "feets" | "mtrs" | "grams",
           conversionRate: parsedSubUnit.conversionRate,
         });
       } else {
@@ -238,6 +249,8 @@ const EditProductModalContent = ({
     const value = e.target.value.replace(/[^0-9]/g, "").slice(0, 8);
     setValue("hsnCode", value, { shouldValidate: true });
   };
+
+  const isKgsSubUnit = unitValue === "kgs" && hasSubUnitValue;
 
   return (
     <div className="flex flex-col w-full sm:px-4 px-2 sm:pb-4 pb-3 pt-4 sm:gap-4 gap-3">
@@ -399,14 +412,19 @@ const EditProductModalContent = ({
             { value: "boxes", label: "Boxes" },
             { value: "pipes", label: "Pipes" },
             { value: "rolls", label: "Rolls" },
+            { value: "kgs", label: "Kilograms" },
           ]}
           onChange={(value) => {
             if (value) {
-              setValue("unit", value as "pcs" | "boxes" | "pipes" | "rolls", {
-                shouldValidate: true,
-              });
+              setValue(
+                "unit",
+                value as "pcs" | "boxes" | "pipes" | "rolls" | "kgs",
+                {
+                  shouldValidate: true,
+                }
+              );
               // Auto-disable subunit if unit doesn't support it
-              if (!["boxes", "pipes", "rolls"].includes(value)) {
+              if (!["boxes", "pipes", "rolls", "kgs"].includes(value)) {
                 setValue("hasSubUnit", false);
               }
             }
@@ -458,7 +476,7 @@ const EditProductModalContent = ({
                     if (value) {
                       setValue(
                         "subUnit.unit",
-                        value as "pcs" | "feets" | "mtrs",
+                        value as "pcs" | "feets" | "mtrs" | "grams",
                         {
                           shouldValidate: true,
                         }
@@ -486,6 +504,8 @@ const EditProductModalContent = ({
                   description={`1 ${unit} = ${
                     subUnitValue?.conversionRate
                       ? subUnitValue?.conversionRate
+                      : isKgsSubUnit
+                      ? "1000"
                       : "?"
                   } ${
                     subUnitValue?.unit || getAvailableSubUnits(unit)[0]?.label
@@ -512,6 +532,8 @@ const EditProductModalContent = ({
                   step={0.001}
                   hideControls
                   required
+                  readOnly={isKgsSubUnit}
+                  disabled={isKgsSubUnit}
                 />
               </div>
             )}

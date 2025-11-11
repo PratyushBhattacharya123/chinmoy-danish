@@ -184,6 +184,7 @@ const ItemDetailsStep = ({
         boxes: "pcs",
         pipes: "feets",
         rolls: "mtrs",
+        kgs: "grams",
       };
 
       const defaultSubUnit = defaultSubUnits[unitValue];
@@ -193,8 +194,15 @@ const ItemDetailsStep = ({
       ) {
         setProductValue(
           "subUnit.unit",
-          defaultSubUnit as "pcs" | "feets" | "mtrs"
+          defaultSubUnit as "pcs" | "feets" | "mtrs" | "grams"
         );
+      }
+
+      // Set conversion rate to 1000 and make readonly for kgs
+      if (unitValue === "kgs") {
+        setProductValue("subUnit.conversionRate", 1000, {
+          shouldValidate: true,
+        });
       }
     }
   }, [unitValue, hasSubUnitValue, setProductValue, subUnitValue]);
@@ -207,6 +215,7 @@ const ItemDetailsStep = ({
       boxes: ["pcs"],
       pipes: ["feets"],
       rolls: ["mtrs"],
+      kgs: ["grams"],
     };
     return validSubUnits[mainUnit]?.includes(subUnit || "") || false;
   };
@@ -216,11 +225,14 @@ const ItemDetailsStep = ({
       boxes: [{ value: "pcs", label: "Pieces" }],
       pipes: [{ value: "feets", label: "Feets" }],
       rolls: [{ value: "mtrs", label: "Metres" }],
+      kgs: [{ value: "grams", label: "Grams" }],
     };
     return subUnitOptions[mainUnit] || [];
   };
 
-  const supportsSubUnits = ["boxes", "pipes", "rolls"].includes(unitValue);
+  const supportsSubUnits = ["boxes", "pipes", "rolls", "kgs"].includes(
+    unitValue
+  );
 
   const handleCancelProductCreation = () => {
     // Get the current quantity and price from the form
@@ -500,6 +512,8 @@ const ItemDetailsStep = ({
 
     return true;
   };
+
+  const isKgsSubUnit = unitValue === "kgs" && hasSubUnitValue;
 
   return (
     <div className="space-y-4">
@@ -942,18 +956,28 @@ const ItemDetailsStep = ({
                           { value: "boxes", label: "Boxes" },
                           { value: "pipes", label: "Pipes" },
                           { value: "rolls", label: "Rolls" },
+                          { value: "kgs", label: "Kilograms" },
                         ]}
                         defaultValue="pcs"
                         onChange={(value) => {
                           if (value) {
                             setProductValue(
                               "unit",
-                              value as "pcs" | "boxes" | "pipes" | "rolls",
+                              value as
+                                | "pcs"
+                                | "boxes"
+                                | "pipes"
+                                | "rolls"
+                                | "kgs",
                               {
                                 shouldValidate: true,
                               }
                             );
-                            if (!["boxes", "pipes", "rolls"].includes(value)) {
+                            if (
+                              !["boxes", "pipes", "rolls", "kgs"].includes(
+                                value
+                              )
+                            ) {
                               setProductValue("hasSubUnit", false);
                             }
                           }
@@ -1013,7 +1037,7 @@ const ItemDetailsStep = ({
                                 if (value) {
                                   setProductValue(
                                     "subUnit.unit",
-                                    value as "pcs" | "feets" | "mtrs",
+                                    value as "pcs" | "feets" | "mtrs" | "grams",
                                     {
                                       shouldValidate: true,
                                     }
@@ -1041,6 +1065,8 @@ const ItemDetailsStep = ({
                               description={`1 ${unitValue} = ${
                                 subUnitValue?.conversionRate
                                   ? subUnitValue?.conversionRate
+                                  : isKgsSubUnit
+                                  ? "1000"
                                   : "?"
                               } ${
                                 subUnitValue?.unit ||
@@ -1074,6 +1100,8 @@ const ItemDetailsStep = ({
                               step={0.001}
                               hideControls
                               required
+                              readOnly={isKgsSubUnit}
+                              disabled={isKgsSubUnit}
                             />
                           </div>
                         )}

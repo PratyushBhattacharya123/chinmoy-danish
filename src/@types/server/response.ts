@@ -19,7 +19,7 @@ export interface CategoriesResponse {
 }
 
 export interface SubUnit {
-  unit: "pcs" | "feets" | "mtrs";
+  unit: "pcs" | "feets" | "mtrs" | "grams";
   conversionRate: number;
 }
 
@@ -29,7 +29,7 @@ export interface ProductsResponse {
   name: string;
   hsnCode: string;
   gstSlab: number;
-  unit: "pcs" | "boxes" | "pipes" | "rolls";
+  unit: "pcs" | "boxes" | "pipes" | "rolls" | "kgs";
   price: number;
   currentStock: number;
   hasSubUnit?: boolean;
@@ -78,7 +78,7 @@ export interface EnrichedItem extends Omit<Item, "productId"> {
     name: string;
     hsnCode: string;
     gstSlab: 5 | 18;
-    unit: "pcs" | "boxes" | "bags" | "rolls";
+    unit: "pcs" | "boxes" | "bags" | "rolls" | "kgs";
     price: number;
     hasSubUnit?: boolean;
     subUnit?: SubUnit;
@@ -125,7 +125,7 @@ export interface EnrichedItemStocks {
     _id: ObjectId;
     name: string;
     currentStock: number;
-    unit: "pcs" | "boxes" | "bags" | "rolls";
+    unit: "pcs" | "boxes" | "bags" | "rolls" | "kgs";
     hasSubUnit: 1;
     subUnit: SubUnit;
   };

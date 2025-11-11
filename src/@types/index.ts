@@ -132,7 +132,7 @@ const addProductSchema = z
     categoryId: z.string().min(1, "Category ID is required"),
 
     unit: z
-      .enum(["pcs", "boxes", "pipes", "rolls"])
+      .enum(["pcs", "boxes", "pipes", "rolls", "kgs"])
       .default("pcs")
       .transform((val) => val || "pcs"),
 
@@ -140,7 +140,7 @@ const addProductSchema = z
 
     subUnit: z
       .object({
-        unit: z.enum(["pcs", "feets", "mtrs"]),
+        unit: z.enum(["pcs", "feets", "mtrs", "grams"]),
         conversionRate: z
           .number()
           .min(0.001, "Conversion rate must be greater than 0"),
@@ -166,6 +166,7 @@ const addProductSchema = z
           boxes: ["pcs"],
           pipes: ["feets"],
           rolls: ["mtrs"],
+          kgs: ["grams"],
           pcs: [],
         };
 

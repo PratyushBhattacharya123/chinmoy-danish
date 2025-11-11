@@ -912,12 +912,9 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                     color: "rgb(55, 65, 81)",
                   }}
                 >
-                  <span style={{ fontWeight: "600" }}>Phone : 63875-57792</span>
-                  <span
-                    style={{ fontWeight: "600" }}
-                    className="text-transparent"
-                  >
-                    GSTIN : 18BALPD1632D1Z5
+                  <span style={{ fontWeight: "600" }}>Phone : 60026-57792</span>
+                  <span style={{ fontWeight: "600" }}>
+                    GSTIN : 18AVDPT4124G1ZK
                   </span>
                 </div>
               </div>
@@ -1289,12 +1286,10 @@ const GSTBillTemplate: React.FC<GSTBillProps> = ({ billData, type }) => {
                     <p>
                       <strong>Bank Details :</strong>
                     </p>
-                    <p className="text-transparent">Punjab National Bank</p>
-                    <p className="text-transparent">Zoo Road Branch</p>
-                    <p className="text-transparent">
-                      Account No. : 190700C100000074
-                    </p>
-                    <p className="text-transparent">IFSC Code : PUNB0190700</p>
+                    <p>Bank of Maharashtra</p>
+                    <p>Ganeshguri Branch</p>
+                    <p>Account No. : 60554701463</p>
+                    <p>IFSC Code : MAHB0001533</p>
                   </div>
 
                   <div

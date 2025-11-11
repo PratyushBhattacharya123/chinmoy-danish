@@ -367,6 +367,13 @@ const StockUpdateForm = () => {
           defaultSubUnit as "pcs" | "feets" | "mtrs"
         );
       }
+
+      // Set conversion rate to 1000 and make readonly for kgs
+      if (unitValue === "kgs") {
+        setProductValue("subUnit.conversionRate", 1000, {
+          shouldValidate: true,
+        });
+      }
     }
   }, [unitValue, hasSubUnitValue, setProductValue, subUnitValue]);
 
@@ -378,6 +385,7 @@ const StockUpdateForm = () => {
       boxes: ["pcs"],
       pipes: ["feets"],
       rolls: ["mtrs"],
+      kgs: ["grams"],
     };
     return validSubUnits[mainUnit]?.includes(subUnit || "") || false;
   };
@@ -387,11 +395,14 @@ const StockUpdateForm = () => {
       boxes: [{ value: "pcs", label: "Pieces" }],
       pipes: [{ value: "feets", label: "Feets" }],
       rolls: [{ value: "mtrs", label: "Metres" }],
+      kgs: [{ value: "grams", label: "Grams" }],
     };
     return subUnitOptions[mainUnit] || [];
   };
 
-  const supportsSubUnits = ["boxes", "pipes", "rolls"].includes(unitValue);
+  const supportsSubUnits = ["boxes", "pipes", "rolls", "kgs"].includes(
+    unitValue
+  );
 
   // Check if product supports subunits
   const productSupportsSubUnits = (productId: string) => {
@@ -444,6 +455,8 @@ const StockUpdateForm = () => {
       rate: product.subUnit.conversionRate,
     };
   };
+
+  const isKgsSubUnit = unitValue === "kgs" && hasSubUnitValue;
 
   return (
     <Layout title="Update Stock" active={5}>
@@ -879,6 +892,7 @@ const StockUpdateForm = () => {
                                   { value: "boxes", label: "Boxes" },
                                   { value: "pipes", label: "Pipes" },
                                   { value: "rolls", label: "Rolls" },
+                                  { value: "kgs", label: "Kilograms" },
                                 ]}
                                 defaultValue="pcs"
                                 onChange={(value) => {
@@ -889,15 +903,19 @@ const StockUpdateForm = () => {
                                         | "pcs"
                                         | "boxes"
                                         | "pipes"
-                                        | "rolls",
+                                        | "rolls"
+                                        | "kgs",
                                       {
                                         shouldValidate: true,
                                       }
                                     );
                                     if (
-                                      !["boxes", "pipes", "rolls"].includes(
-                                        value
-                                      )
+                                      ![
+                                        "boxes",
+                                        "pipes",
+                                        "rolls",
+                                        "kgs",
+                                      ].includes(value)
                                     ) {
                                       setProductValue("hasSubUnit", false);
                                     }
@@ -958,7 +976,11 @@ const StockUpdateForm = () => {
                                         if (value) {
                                           setProductValue(
                                             "subUnit.unit",
-                                            value as "pcs" | "feets" | "mtrs",
+                                            value as
+                                              | "pcs"
+                                              | "feets"
+                                              | "mtrs"
+                                              | "grams",
                                             {
                                               shouldValidate: true,
                                             }
@@ -988,6 +1010,8 @@ const StockUpdateForm = () => {
                                       description={`1 ${unitValue} = ${
                                         subUnitValue?.conversionRate
                                           ? subUnitValue?.conversionRate
+                                          : isKgsSubUnit
+                                          ? "1000"
                                           : "?"
                                       } ${
                                         subUnitValue?.unit ||
@@ -1023,6 +1047,8 @@ const StockUpdateForm = () => {
                                       step={0.001}
                                       hideControls
                                       required
+                                      readOnly={isKgsSubUnit}
+                                      disabled={isKgsSubUnit}
                                     />
                                   </div>
                                 )}
