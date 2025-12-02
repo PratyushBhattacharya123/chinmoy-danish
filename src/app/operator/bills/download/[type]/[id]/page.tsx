@@ -109,8 +109,6 @@ const DownloadBill = () => {
         scale: 3,
         backgroundColor: "#ffffff",
         removeContainer: true,
-        width: 794,
-        height: 1123,
         onclone: (clonedDoc) => {
           const allElements = clonedDoc.querySelectorAll("*");
           allElements.forEach((el) => {
