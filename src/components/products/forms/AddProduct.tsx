@@ -182,24 +182,25 @@ const ProductAdd = ({ onClose }: Props) => {
         variant="filled"
       />
 
-      <TextInput
-        type="text"
-        label={<span className="font-medium text-gray-700">HSN Code</span>}
-        placeholder="Enter HSN code (4-8 digits)..."
-        {...register("hsnCode")}
-        onChange={handleHSNChange}
-        required
-        classNames={{
-          input:
-            "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
-          label: "!mb-1 !text-gray-700",
-        }}
-        error={errors.hsnCode?.message}
-        variant="filled"
-        maxLength={8}
-      />
-
       <div className="flex sm:flex-row flex-col sm:gap-4 gap-3">
+        <TextInput
+          type="text"
+          label={<span className="font-medium text-gray-700">HSN Code</span>}
+          placeholder="Enter HSN code (4-8 digits)..."
+          {...register("hsnCode")}
+          onChange={handleHSNChange}
+          required
+          classNames={{
+            input:
+              "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
+            label: "!mb-1 !text-gray-700",
+          }}
+          className="!w-full"
+          error={errors.hsnCode?.message}
+          variant="filled"
+          maxLength={8}
+        />
+
         <NumberInput
           label={<span className="font-medium text-gray-700">GST Slab</span>}
           placeholder="Enter GST slab here..."
@@ -225,7 +226,9 @@ const ProductAdd = ({ onClose }: Props) => {
           maxLength={2}
           hideControls
         />
+      </div>
 
+      <div className="flex sm:flex-row flex-col sm:gap-4 gap-3">
         <NumberInput
           label={<span className="font-medium text-gray-700">Price</span>}
           placeholder="Enter price here..."
@@ -249,6 +252,89 @@ const ProductAdd = ({ onClose }: Props) => {
           min={0}
           hideControls
           prefix="₹"
+        />
+
+        <NumberInput
+          label={<span className="font-medium text-gray-700">Discount</span>}
+          placeholder="Enter discount here..."
+          value={watch("discountPercentage")}
+          onChange={(value) => {
+            if (value === undefined || value === null || value === "") {
+              setValue("discountPercentage", undefined, {
+                shouldValidate: true,
+              });
+              return;
+            }
+
+            const stringValue = value.toString();
+            let cleanedValue = stringValue;
+
+            cleanedValue = cleanedValue.replace(/^0+/, "");
+            cleanedValue = cleanedValue === "" ? "0" : cleanedValue;
+
+            const numValue = Number(cleanedValue);
+
+            if (!isNaN(numValue) && numValue) {
+              const cappedValue = Math.min(numValue, 100);
+              setValue("discountPercentage", cappedValue, {
+                shouldValidate: true,
+              });
+            } else {
+              setValue("discountPercentage", 0);
+            }
+          }}
+          onKeyDown={(e) => {
+            const currentValue = watch("discountPercentage") || "";
+            const currentString = currentValue.toString();
+
+            const allowedKeys = [
+              "Backspace",
+              "Delete",
+              "ArrowLeft",
+              "ArrowRight",
+              "Tab",
+              "Enter",
+              "Home",
+              "End",
+            ];
+
+            if (allowedKeys.includes(e.key)) {
+              return;
+            }
+
+            if (e.key === "." && !currentString.includes(".")) {
+              return;
+            }
+
+            // Only allow digits
+            if (!/^\d$/.test(e.key)) {
+              e.preventDefault();
+              return;
+            }
+            const newValueString = currentString + e.key;
+            const newValue = parseInt(newValueString, 10);
+
+            if (
+              newValue > 100 ||
+              (newValueString.length >= 3 && newValueString !== "100")
+            ) {
+              e.preventDefault();
+            }
+          }}
+          classNames={{
+            input:
+              "!border-gray-300 focus:!border-gray-600 focus:!ring-gray-500 !rounded-md !bg-gray-50",
+            label: "!mb-1 !text-gray-700",
+          }}
+          className="w-full"
+          error={errors.discountPercentage?.message}
+          variant="filled"
+          allowNegative={false}
+          allowDecimal={true}
+          min={0}
+          max={100}
+          hideControls
+          suffix="%"
         />
       </div>
 

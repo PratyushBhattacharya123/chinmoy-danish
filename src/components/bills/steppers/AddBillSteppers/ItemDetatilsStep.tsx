@@ -59,6 +59,7 @@ type Props = {
     _id: string;
     name: string;
     price: number;
+    discountPercentage?: number | undefined;
     unit: string;
     hasSubUnit?: boolean | undefined;
     subUnit?:
@@ -282,6 +283,10 @@ const ItemDetailsStep = ({
         ...prev,
         [index]: selectedProduct.price,
       }));
+      setValue(
+        `items.${index}.discountPercentage`,
+        selectedProduct.discountPercentage
+      );
     }
   };
 

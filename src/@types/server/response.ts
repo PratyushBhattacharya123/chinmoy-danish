@@ -31,6 +31,7 @@ export interface ProductsResponse {
   gstSlab: number;
   unit: "pcs" | "boxes" | "pipes" | "rolls" | "kgs";
   price: number;
+  discountPercentage?: number;
   currentStock: number;
   hasSubUnit?: boolean;
   subUnit?: SubUnit;

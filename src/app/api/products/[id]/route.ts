@@ -109,6 +109,8 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     if (data.name !== undefined) updateData.name = data.name;
     if (data.gstSlab !== undefined) updateData.gstSlab = data.gstSlab;
     if (data.price !== undefined) updateData.price = data.price;
+    if (data.discountPercentage !== undefined)
+      updateData.discountPercentage = data.discountPercentage;
     if (data.hsnCode !== undefined) updateData.hsnCode = data.hsnCode;
     if (data.unit !== undefined) updateData.unit = data.unit;
     if (data.quantity !== undefined) updateData.currentStock = data.quantity;

@@ -38,6 +38,7 @@ export interface ProductDataType {
   unit: string;
   currentStock: string;
   price: string;
+  discountPercentage: string;
   hasSubUnit: string;
   subUnit: string;
   delete: () => void;
@@ -198,6 +199,27 @@ const Products = () => {
     };
   };
 
+  // Function to format discount display
+  const formatDiscountDisplay = (percentage: number) => {
+    if (isNaN(percentage) || percentage === 0) {
+      return {
+        text: "Not Set",
+        color: "text-gray-500",
+        bgColor: "bg-gray-50",
+        borderColor: "border-gray-200",
+        iconColor: "text-gray-400",
+      };
+    }
+
+    return {
+      text: `${percentage}%`,
+      color: "text-gray-700",
+      bgColor: "bg-gray-50",
+      borderColor: "border-gray-200",
+      iconColor: "text-gray-500",
+    };
+  };
+
   const columns = [
     columnHelper.accessor("name", {
       id: "name",
@@ -251,6 +273,22 @@ const Products = () => {
       },
       header: () => "Price",
     }),
+    columnHelper.accessor("discountPercentage", {
+      id: "discountPercentage",
+      cell: (info) => {
+        const priceValue = Number(info.getValue());
+        const config = formatDiscountDisplay(priceValue);
+
+        return (
+          <div
+            className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border ${config.bgColor} ${config.borderColor} ${config.color}`}
+          >
+            {config.text}
+          </div>
+        );
+      },
+      header: () => "Discount",
+    }),
     columnHelper.accessor("currentStock", {
       id: "currentStock",
       cell: (info) => {
@@ -290,7 +328,6 @@ const Products = () => {
         try {
           const subUnit = JSON.parse(subUnitStr);
 
-          console.log({ subUnit });
           return (
             <div className="text-xs text-gray-600">
               <div>
@@ -839,6 +876,7 @@ const Products = () => {
         unit: product.unit,
         currentStock: String(product.currentStock),
         price: String(product.price || 0),
+        discountPercentage: String(product.discountPercentage || 0),
         hasSubUnit: product.hasSubUnit ? String(product.hasSubUnit) : "",
         subUnit: product.subUnit ? JSON.stringify(product.subUnit) : "",
         delete: () => handleDelete(product._id.toString()),

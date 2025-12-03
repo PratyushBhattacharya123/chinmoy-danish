@@ -26,6 +26,7 @@ const AddProformaInvoice = () => {
       _id: string;
       name: string;
       price: number;
+      discountPercentage?: number;
       unit: string;
       hasSubUnit?: boolean;
       subUnit?: {
@@ -52,6 +53,7 @@ const AddProformaInvoice = () => {
           _id: p._id.toString(),
           name: p.name,
           price: p.price,
+          discountPercentage: p.discountPercentage,
           unit: p.unit,
           hasSubUnit: p.hasSubUnit,
           subUnit: p.subUnit,

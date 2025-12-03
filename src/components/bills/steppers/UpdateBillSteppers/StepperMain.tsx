@@ -45,6 +45,7 @@ type Props = {
     _id: string;
     name: string;
     price: number;
+    discountPercentage?: number | undefined;
     unit: string;
     hasSubUnit?: boolean | undefined;
     subUnit?:

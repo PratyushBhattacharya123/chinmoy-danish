@@ -127,6 +127,12 @@ const addProductSchema = z
 
     price: z.number().min(0, "Price cannot be negative"),
 
+    discountPercentage: z
+      .number()
+      .min(0, "Discount cannot be negative")
+      .max(100, "Discount cannot exceed 100%")
+      .optional(),
+
     quantity: z.number().optional(),
 
     categoryId: z.string().min(1, "Category ID is required"),
