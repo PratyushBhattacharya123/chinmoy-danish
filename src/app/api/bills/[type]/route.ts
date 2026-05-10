@@ -29,7 +29,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     if (!typeValidation.success) {
       return NextResponse.json(
         { error: "Invalid type format" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       Object.entries(searchParams).map(([key, value]) => [
         key,
         value === "undefined" ? undefined : value === "null" ? null : value,
-      ])
+      ]),
     );
 
     const results = await getBillsQuerySchema.safeParseAsync(cleanedParams);
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       console.error(JSON.stringify(results.error));
       return NextResponse.json(
         { error: "Invalid query parameters", details: results.error.format() },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       if (end < start) {
         return NextResponse.json(
           { error: "End date must be newer than or equal to start date" },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     if (!session) {
       return NextResponse.json(
         { error: "Unauthorized - Please log in" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -83,12 +83,12 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     ) {
       return NextResponse.json(
         { error: "Forbidden - Insufficient permissions" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     const billsCollection = await getCollection<BillsResponse>(
-      type === "invoices" ? "invoices" : "proforma-invoices"
+      type === "invoices" ? "invoices" : "proforma-invoices",
     );
 
     const query: Filter<BillsResponse> = {};
@@ -224,7 +224,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     console.error("Error fetching bills:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -243,7 +243,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     if (!typeValidation.success) {
       return NextResponse.json(
         { error: "Invalid type format" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -256,7 +256,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           error: "Invalid data",
           details: results.error.format(),
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -267,7 +267,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     if (!session) {
       return NextResponse.json(
         { error: "Unauthorized - Please log in" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -277,12 +277,12 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     ) {
       return NextResponse.json(
         { error: "Forbidden - Insufficient permissions" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     const billsCollection = await getCollection(
-      type === "invoices" ? "invoices" : "proforma-invoices"
+      type === "invoices" ? "invoices" : "proforma-invoices",
     );
 
     // Checking if party exists
@@ -302,7 +302,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     if (productIds.length !== uniqueProductIds.length) {
       // Find the duplicate product IDs
       const duplicateProductIds = productIds.filter(
-        (productId, index) => productIds.indexOf(productId) !== index
+        (productId, index) => productIds.indexOf(productId) !== index,
       );
 
       // Get product names for better error message
@@ -323,7 +323,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           duplicateProducts: duplicateProductNames,
           duplicateProductIds: [...new Set(duplicateProductIds)],
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
@@ -347,7 +347,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           error: "Some products not found",
           missingProducts: missingProductIds,
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -370,7 +370,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     const financialYear = getFinancialYear(invoiceDate);
 
     const lastBill = await billsCollection
-      .find()
+      .find({
+        billNumber: { $regex: financialYear },
+      })
       .sort({ billNumber: -1 })
       .limit(1)
       .toArray();
@@ -391,7 +393,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
     const itemsWithPrices = data.items.map((item) => {
       const product = existingProducts.find(
-        (p) => p._id.toString() === item.productId
+        (p) => p._id.toString() === item.productId,
       );
       return {
         quantity: item.quantity,
@@ -439,14 +441,14 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           _id: result.insertedId,
         },
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     console.error("Error creating bill:", error);
 
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
