@@ -3,6 +3,7 @@
 import React, { useMemo } from "react";
 import { convertToDateFormat, convertToWords } from "../utils/helper";
 import { AddOn } from "@/@types/server/response";
+import Image from "next/image";
 
 interface Party {
   name: string;
@@ -361,22 +362,33 @@ const GSTInvoice = ({ data, type }: Props) => {
               <tbody>
                 <tr>
                   <td className="company-block border-r border-black p-1">
-                    <div className="company-name">
-                      CHINMOY DANISH ELECTRICAL PLUMBING SHOP
+                    <div className="flex items-center gap-3 h-full pl-2">
+                      <Image
+                        src="/logo/logo.png"
+                        alt=""
+                        height={500}
+                        width={500}
+                        className="object-cover h-18 w-auto rounded-full"
+                      />
+                      <div className="flex flex-col">
+                        <div className="company-name">
+                          CHINMOY DANISH ELECTRICAL PLUMBING SHOP
+                        </div>
+
+                        <div>
+                          Khagen Mahanta Road, Hengrabari, Near Kali Mandir,
+                          Kamrup Metro
+                        </div>
+
+                        <div>Guwahati - 781036, Assam</div>
+
+                        <div>GSTIN/UIN : 18AVDPT4124G1ZK</div>
+
+                        <div>State Name : Assam, Code : 18</div>
+
+                        <div>Contact : 60026-57792</div>
+                      </div>
                     </div>
-
-                    <div>
-                      Khagen Mahanta Road, Hengrabari, Near Kali Mandir, Kamrup
-                      Metro
-                    </div>
-
-                    <div>Guwahati - 781036, Assam</div>
-
-                    <div>GSTIN/UIN: 18AVDPT4124G1ZK</div>
-
-                    <div>State Name : Assam, Code : 18</div>
-
-                    <div>Contact : 60026-57792</div>
                   </td>
 
                   <td className="details-block p-2 text-[10px] align-top">
