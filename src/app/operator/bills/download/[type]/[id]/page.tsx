@@ -1,7 +1,7 @@
 "use client";
 
 import Layout from "@/components/common/layout/Layout";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import CustomLoader from "@/components/common/CustomLoader";
 import { useBillData } from "@/hooks/use-queries";
 import { EnrichedBillsResponse } from "@/@types/server/response";
@@ -18,13 +18,14 @@ import { useRouter } from "next/navigation";
 import html2canvas from "html2canvas-pro";
 import jsPDF from "jspdf";
 import toast from "react-hot-toast";
+import { InvoiceItem } from "../../../../../../components/bills/GSTBill";
 
 const GSTBillTemplate = dynamic(
   () => import("../../../../../../components/bills/GSTBill"),
   {
     ssr: false,
     loading: () => <CustomLoader />,
-  }
+  },
 );
 
 const DownloadBill = () => {
@@ -55,6 +56,28 @@ const DownloadBill = () => {
       setData(billData);
     }
   }, [billData, isSuccess]);
+
+  const items: InvoiceItem[] = useMemo(
+    () =>
+      data?.items.map((item) => ({
+        id: item.productDetails?._id?.toString() ?? "",
+        description: item.productDetails?.name ?? "",
+        hsn: item.productDetails?.hsnCode ?? "",
+        gstRate: Number(item.productDetails?.gstSlab) ?? 18,
+        quantity: item.quantity,
+        isSubUnit: item.isSubUnit,
+        unit: item.isSubUnit ? undefined : item.productDetails?.unit,
+        subUnit: item.isSubUnit
+          ? item.productDetails?.subUnit?.unit
+          : undefined,
+        conversionRate: item.isSubUnit
+          ? item.productDetails?.subUnit?.conversionRate
+          : undefined,
+        rate: item.productDetails?.price ?? 0,
+        discount: item.discountPercentage,
+      })) ?? [],
+    [data],
+  );
 
   useEffect(() => {
     setIsComponentLoaded(true);
@@ -137,7 +160,7 @@ const DownloadBill = () => {
         0,
         position,
         imgWidth,
-        imgHeight
+        imgHeight,
       );
 
       const pagesNeeded = Math.ceil(imgHeight / pageHeight);
@@ -151,14 +174,14 @@ const DownloadBill = () => {
           0,
           position,
           imgWidth,
-          imgHeight
+          imgHeight,
         );
       }
 
       pdf.save(
         `${type === "invoices" ? "Invoice" : "Proforma_Invoice"}_${
           data.billNumber
-        }.pdf`
+        }.pdf`,
       );
 
       document.body.removeChild(pdfContainer);
@@ -358,7 +381,28 @@ const DownloadBill = () => {
                             }}
                           >
                             {isComponentLoaded && data && (
-                              <GSTBillTemplate billData={data} type={type} />
+                              <GSTBillTemplate
+                                data={{
+                                  invoiceNo: data.billNumber,
+                                  invoiceDate: String(data.invoiceDate),
+                                  dispatchedThrough:
+                                    data.supplyDetails.vehicleNumber,
+                                  transporterName:
+                                    data.supplyDetails.transporterName,
+                                  destination: data.supplyDetails.supplyPlace,
+                                  buyer: {
+                                    name: data.partyDetails?.name ?? "",
+                                    address: data.partyDetails?.address ?? "",
+                                    gstin: data.partyDetails?.gstNumber,
+                                    state: data.partyDetails?.state ?? "Assam",
+                                    stateCode:
+                                      data.partyDetails?.stateCode ?? "18",
+                                  },
+                                  items,
+                                  addOns: data.addOns,
+                                }}
+                                type={type}
+                              />
                             )}
                           </div>
                         </div>
@@ -375,7 +419,7 @@ const DownloadBill = () => {
                               className="!border-gray-400 !text-gray-700 hover:!bg-gray-100"
                               onClick={() =>
                                 setPreviewScale((prev) =>
-                                  Math.max(0.3, prev - 0.1)
+                                  Math.max(0.3, prev - 0.1),
                                 )
                               }
                               disabled={previewScale <= 0.3}
@@ -388,7 +432,7 @@ const DownloadBill = () => {
                               className="!border-gray-400 !text-gray-700 hover:!bg-gray-100"
                               onClick={() =>
                                 setPreviewScale((prev) =>
-                                  Math.min(1, prev + 0.1)
+                                  Math.min(1, prev + 0.1),
                                 )
                               }
                               disabled={previewScale >= 1}
@@ -443,7 +487,7 @@ const DownloadBill = () => {
                               >
                                 {data?.invoiceDate &&
                                   new Date(
-                                    data.invoiceDate
+                                    data.invoiceDate,
                                   ).toLocaleDateString()}
                               </Text>
                             </div>
@@ -457,7 +501,7 @@ const DownloadBill = () => {
                               >
                                 ₹
                                 {Math.round(
-                                  data?.totalAmount || 0
+                                  data?.totalAmount || 0,
                                 )?.toLocaleString("en-IN", {
                                   minimumFractionDigits: 2,
                                   maximumFractionDigits: 2,

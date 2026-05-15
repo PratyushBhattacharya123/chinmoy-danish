@@ -82,20 +82,20 @@ const ItemsModalContent = ({
   // Totals
   const itemsSubtotal = items.reduce(
     (sum, item) => sum + getBaseAmount(item),
-    0
+    0,
   );
   const totalDiscount = items.reduce(
     (sum, item) => sum + getDiscountAmount(item),
-    0
+    0,
   );
   const itemsTotal = items.reduce(
     (sum, item) => sum + calculateItemTotal(item),
-    0
+    0,
   );
   const addOnsTotal = addOns.reduce((sum, a) => sum + (a.price || 0), 0);
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
   const itemsWithDiscount = items.filter(
-    (item) => item.discountPercentage && item.discountPercentage > 0
+    (item) => item.discountPercentage && item.discountPercentage > 0,
   ).length;
 
   return (
@@ -110,7 +110,7 @@ const ItemsModalContent = ({
             { label: "Add-ons", value: addOns.length },
             {
               label: "Grand Total",
-              value: `₹${totalAmount.toLocaleString("en-IN")}`,
+              value: `₹${totalAmount.toFixed(2)}`,
             },
           ].map((info, i) => (
             <div key={i} className="text-center">

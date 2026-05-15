@@ -37,8 +37,10 @@ export interface ProductsResponse {
   subUnit?: SubUnit;
 }
 
-export interface EnrichedProductsResponse
-  extends Omit<ProductsResponse, "categoryId"> {
+export interface EnrichedProductsResponse extends Omit<
+  ProductsResponse,
+  "categoryId"
+> {
   categoryDetails: CategoriesResponse | null;
 }
 
@@ -78,7 +80,7 @@ export interface EnrichedItem extends Omit<Item, "productId"> {
     categoryId: ObjectId;
     name: string;
     hsnCode: string;
-    gstSlab: 5 | 18;
+    gstSlab: string;
     unit: "pcs" | "boxes" | "bags" | "rolls" | "kgs";
     price: number;
     hasSubUnit?: boolean;
@@ -90,8 +92,10 @@ export interface EnrichedItem extends Omit<Item, "productId"> {
   } | null;
 }
 
-export interface EnrichedBillsResponse
-  extends Omit<BillsResponse, "items" | "partyId"> {
+export interface EnrichedBillsResponse extends Omit<
+  BillsResponse,
+  "items" | "partyId"
+> {
   partyDetails: PartyDetailsResponse | null;
   items: EnrichedItem[];
 }
@@ -132,8 +136,10 @@ export interface EnrichedItemStocks {
   };
 }
 
-export interface EnrichedStocksResponse
-  extends Omit<StocksResponse, "items" | "createdBy"> {
+export interface EnrichedStocksResponse extends Omit<
+  StocksResponse,
+  "items" | "createdBy"
+> {
   items: EnrichedItemStocks[];
   userDetails: {
     name: string;

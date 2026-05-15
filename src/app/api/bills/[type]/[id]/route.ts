@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { getCollection } from "@/lib/db";
 import { ObjectId } from "mongodb";
 import { updateBillSchema, userTypeSchema } from "@/@types";
-import { BillsResponse, ProductsResponse } from "@/@types/server/response";
+import { BillsResponse } from "@/@types/server/response";
 import z from "zod";
 import {
   RATE_LIMIT_MAX_REQUESTS,
@@ -34,14 +34,14 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     if (!typeValidation.success) {
       return NextResponse.json(
         { error: "Invalid type format" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!id) {
       return NextResponse.json(
         { error: "Bill ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     if (!idValidation.success) {
       return NextResponse.json(
         { error: "Invalid bill ID format" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -58,7 +58,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     if (!session) {
       return NextResponse.json(
         { error: "Unauthorized - Please log in" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -68,12 +68,12 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     ) {
       return NextResponse.json(
         { error: "Forbidden - Insufficient permissions" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     const billsCollection = await getCollection<BillsResponse>(
-      type === "invoices" ? "invoices" : "proforma-invoices"
+      type === "invoices" ? "invoices" : "proforma-invoices",
     );
 
     const aggregationPipeline = [
@@ -194,13 +194,13 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     if (error instanceof Error && error.message.includes("ObjectId")) {
       return NextResponse.json(
         { error: "Invalid bill ID format" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -219,14 +219,14 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     if (!typeValidation.success) {
       return NextResponse.json(
         { error: "Invalid type format" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!id) {
       return NextResponse.json(
         { error: "Product ID is required for update" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -234,7 +234,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     if (!idValidation.success) {
       return NextResponse.json(
         { error: "Invalid product ID format" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -247,7 +247,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
           error: "Invalid data",
           details: resultsBody.error.format(),
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -258,7 +258,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     if (!session) {
       return NextResponse.json(
         { error: "Unauthorized - Please log in" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -269,13 +269,13 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     ) {
       return NextResponse.json(
         { error: "Forbidden - Insufficient permissions" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
-    // Check if party exists
-    const billsCollection = await getCollection<ProductsResponse>(
-      type === "invoices" ? "invoices" : "proforma-invoices"
+    // Check if bill exists
+    const billsCollection = await getCollection<BillsResponse>(
+      type === "invoices" ? "invoices" : "proforma-invoices",
     );
     const existingBills = await billsCollection.findOne({
       _id: new ObjectId(id),
@@ -298,7 +298,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       if (productIds.length !== uniqueProductIds.length) {
         // Find the duplicate product IDs
         const duplicateProductIds = productIds.filter(
-          (productId, index) => productIds.indexOf(productId) !== index
+          (productId, index) => productIds.indexOf(productId) !== index,
         );
 
         // Get product names for better error message
@@ -319,7 +319,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
             duplicateProducts: duplicateProductNames,
             duplicateProductIds: [...new Set(duplicateProductIds)],
           },
-          { status: 409 }
+          { status: 409 },
         );
       }
 
@@ -343,17 +343,17 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
             error: "Some products not found",
             missingProducts: missingProductIds,
           },
-          { status: 404 }
+          { status: 404 },
         );
       }
 
       const itemsWithPrices = data.items.map((item) => {
         const product = existingProducts.find(
-          (p) => p._id.toString() === item.productId
+          (p) => p._id.toString() === item.productId,
         );
         return {
           quantity: item.quantity,
-          price: Number(product?.price) || 0,
+          price: Number(product?.price) ?? 0,
           discountPercentage: item.discountPercentage,
           conversion: item.isSubUnit
             ? Number(product?.subUnit?.conversionRate)
@@ -372,7 +372,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
       updateData.totalAmount = calculateTotalAmount(
         itemsWithPrices,
-        data.addOns
+        data.addOns,
       );
     }
 
@@ -388,7 +388,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
     const updateResult = await billsCollection.updateOne(
       { _id: new ObjectId(id) },
-      { $set: { ...updateData, updateData } }
+      { $set: { ...updateData, updateData } },
     );
 
     if (updateResult.matchedCount === 0) {
@@ -408,7 +408,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -426,7 +426,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     for (const [key, timestamps] of rateLimit.entries()) {
       rateLimit.set(
         key,
-        timestamps.filter((time: number) => time > windowStart)
+        timestamps.filter((time: number) => time > windowStart),
       );
     }
 
@@ -435,7 +435,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     if (requestTimestamps.length >= RATE_LIMIT_MAX_REQUESTS) {
       return NextResponse.json(
         { error: "Too many requests. Please try again later." },
-        { status: 429, headers: { "Retry-After": "60" } }
+        { status: 429, headers: { "Retry-After": "60" } },
       );
     }
 
@@ -453,14 +453,14 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     if (!typeValidation.success) {
       return NextResponse.json(
         { error: "Invalid type format" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!id) {
       return NextResponse.json(
         { error: "Bill ID is required for deletion" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -468,7 +468,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     if (!idValidation.success) {
       return NextResponse.json(
         { error: "Invalid product ID format" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -477,7 +477,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     if (!session) {
       return NextResponse.json(
         { error: "Unauthorized - Please log in" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -487,12 +487,12 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     ) {
       return NextResponse.json(
         { error: "Forbidden - Insufficient permissions" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     const billsCollection = await getCollection<BillsResponse>(
-      type === "invoices" ? "invoices" : "proforma-invoices"
+      type === "invoices" ? "invoices" : "proforma-invoices",
     );
 
     const existingBill = await billsCollection.findOne({
@@ -520,7 +520,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

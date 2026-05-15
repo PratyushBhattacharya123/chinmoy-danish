@@ -45,7 +45,7 @@ export const calculateTotalAmount = (
     discountPercentage?: number;
     conversion?: number;
   }[],
-  addOns?: AddOn[]
+  addOns?: AddOn[],
 ) => {
   const itemsTotal = itemsWithPrices.reduce((total, item) => {
     const baseAmount =
@@ -65,86 +65,118 @@ export const calculateTotalAmount = (
 };
 
 export const convertToWords = (num: number): string => {
-  if (num === 0) return "Zero";
+  // Handle zero case
+  if (num === 0) return "Zero Rupees";
 
-  const ones = [
-    "",
-    "One",
-    "Two",
-    "Three",
-    "Four",
-    "Five",
-    "Six",
-    "Seven",
-    "Eight",
-    "Nine",
-  ];
-  const teens = [
-    "Ten",
-    "Eleven",
-    "Twelve",
-    "Thirteen",
-    "Fourteen",
-    "Fifteen",
-    "Sixteen",
-    "Seventeen",
-    "Eighteen",
-    "Nineteen",
-  ];
-  const tens = [
-    "",
-    "",
-    "Twenty",
-    "Thirty",
-    "Forty",
-    "Fifty",
-    "Sixty",
-    "Seventy",
-    "Eighty",
-    "Ninety",
-  ];
+  // Separate rupees and paise (2 decimal places)
+  let rupees = Math.floor(num);
+  let paise = Math.round((num - rupees) * 100);
 
-  let words = "";
-
-  // Crores
-  if (num >= 10000000) {
-    words += convertToWords(Math.floor(num / 10000000)) + " Crore ";
-    num %= 10000000;
+  // Fix floating point rounding issues
+  if (paise === 100) {
+    rupees++;
+    paise = 0;
   }
 
-  // Lakhs
-  if (num >= 100000) {
-    words += convertToWords(Math.floor(num / 100000)) + " Lakh ";
-    num %= 100000;
-  }
+  // Helper to convert integer part (0-99,99,999+) to words
+  const integerToWords = (n: number): string => {
+    if (n === 0) return "";
 
-  // Thousands
-  if (num >= 1000) {
-    words += convertToWords(Math.floor(num / 1000)) + " Thousand ";
-    num %= 1000;
-  }
+    const ones = [
+      "",
+      "One",
+      "Two",
+      "Three",
+      "Four",
+      "Five",
+      "Six",
+      "Seven",
+      "Eight",
+      "Nine",
+    ];
+    const teens = [
+      "Ten",
+      "Eleven",
+      "Twelve",
+      "Thirteen",
+      "Fourteen",
+      "Fifteen",
+      "Sixteen",
+      "Seventeen",
+      "Eighteen",
+      "Nineteen",
+    ];
+    const tens = [
+      "",
+      "",
+      "Twenty",
+      "Thirty",
+      "Forty",
+      "Fifty",
+      "Sixty",
+      "Seventy",
+      "Eighty",
+      "Ninety",
+    ];
 
-  // Hundreds
-  if (num >= 100) {
-    words += convertToWords(Math.floor(num / 100)) + " Hundred ";
-    num %= 100;
-  }
+    let words = "";
 
-  // Tens and Ones
-  if (num > 0) {
-    if (num < 10) {
-      words += ones[num];
-    } else if (num < 20) {
-      words += teens[num - 10];
-    } else {
-      words += tens[Math.floor(num / 10)];
-      if (num % 10 > 0) {
-        words += " " + ones[num % 10];
+    // Crores
+    if (n >= 10000000) {
+      words += integerToWords(Math.floor(n / 10000000)) + " Crore ";
+      n %= 10000000;
+    }
+    // Lakhs
+    if (n >= 100000) {
+      words += integerToWords(Math.floor(n / 100000)) + " Lakh ";
+      n %= 100000;
+    }
+    // Thousands
+    if (n >= 1000) {
+      words += integerToWords(Math.floor(n / 1000)) + " Thousand ";
+      n %= 1000;
+    }
+    // Hundreds
+    if (n >= 100) {
+      words += integerToWords(Math.floor(n / 100)) + " Hundred ";
+      n %= 100;
+    }
+    // Tens and ones
+    if (n > 0) {
+      if (n < 10) {
+        words += ones[n];
+      } else if (n < 20) {
+        words += teens[n - 10];
+      } else {
+        words += tens[Math.floor(n / 10)];
+        if (n % 10 > 0) {
+          words += " " + ones[n % 10];
+        }
       }
     }
+    return words.trim();
+  };
+
+  // Convert rupees part
+  const rupeesWords = integerToWords(rupees);
+  const rupeesText = rupeesWords
+    ? rupees === 1
+      ? `${rupeesWords} Rupee`
+      : `${rupeesWords} Rupees`
+    : "";
+
+  // Convert paise part
+  let paiseText = "";
+  if (paise > 0) {
+    const paiseWords = integerToWords(paise);
+    paiseText = paise === 1 ? `${paiseWords} Paisa` : `${paiseWords} Paise`;
   }
 
-  return words.trim();
+  // Combine
+  if (rupeesText && paiseText) {
+    return `${rupeesText} and ${paiseText}`;
+  }
+  return rupeesText || paiseText;
 };
 
 import { ProductsResponse } from "@/@types/server/response";
@@ -155,11 +187,11 @@ export async function applyStockChanges(
   type: "IN" | "OUT" | "ADJUSTMENT",
   items: Array<{ productId: string; quantity: number; isSubUnit?: boolean }>,
   existingProducts: ProductsResponse[],
-  productsCollection: Collection<ProductsResponse>
+  productsCollection: Collection<ProductsResponse>,
 ) {
   for (const item of items) {
     const product = existingProducts.find(
-      (p) => p._id.toString() === item.productId
+      (p) => p._id.toString() === item.productId,
     );
 
     if (!product) continue;
@@ -188,7 +220,7 @@ export async function applyStockChanges(
           currentStock: newStock,
           updatedAt: new Date(),
         },
-      }
+      },
     );
   }
 }
