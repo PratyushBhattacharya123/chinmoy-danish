@@ -735,10 +735,15 @@ const GSTInvoice = ({ data, type }: Props) => {
 
                                   <th colSpan={2}>IGST</th>
 
-                                  <th rowSpan={2}>Total Tax Amount</th>
+                                  <th
+                                    rowSpan={2}
+                                    className="border-l border-black"
+                                  >
+                                    Total Tax Amount
+                                  </th>
                                 </tr>
 
-                                <tr>
+                                <tr className="border-t border-black">
                                   <th>Rate</th>
 
                                   <th>Amount</th>
@@ -1023,15 +1028,15 @@ const GSTInvoice = ({ data, type }: Props) => {
         }
 
         .desc-col {
-          width: 46%;
+          width: 45%;
         }
 
         .hsn-col {
-          width: 10%;
+          width: 9%;
         }
 
         .qty-col {
-          width: 8%;
+          width: 7%;
         }
 
         .rate-col {
@@ -1047,7 +1052,7 @@ const GSTInvoice = ({ data, type }: Props) => {
         }
 
         .amt-col {
-          width: 10%;
+          width: 13%;
         }
 
         .buyer-section {
