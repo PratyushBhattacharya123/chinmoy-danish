@@ -88,7 +88,7 @@ const EditProductModalContent = ({
           const errorData = await response.json();
           toast.error(
             errorData.error ||
-              "Failed to update the product, internal server error!"
+              "Failed to update the product, internal server error!",
           );
         }
         return errorData;
@@ -131,7 +131,7 @@ const EditProductModalContent = ({
       ) {
         setValue(
           "subUnit.unit",
-          defaultSubUnit as "pcs" | "feets" | "mtrs" | "grams"
+          defaultSubUnit as "pcs" | "feets" | "mtrs" | "grams",
         );
       }
 
@@ -145,7 +145,7 @@ const EditProductModalContent = ({
   // Check if subunit is valid for the current main unit
   const isValidSubUnit = (
     mainUnit: string,
-    subUnit: string | undefined
+    subUnit: string | undefined,
   ): boolean => {
     const validSubUnits: Record<string, string[]> = {
       boxes: ["pcs"],
@@ -170,6 +170,8 @@ const EditProductModalContent = ({
   // Check if current unit supports subunits
   const supportsSubUnits = ["boxes", "pipes", "rolls", "kgs"].includes(unit);
 
+  console.log(innerProps.data);
+
   useEffect(() => {
     if (innerProps.data) {
       setValue("name", innerProps.data.name);
@@ -177,20 +179,20 @@ const EditProductModalContent = ({
       setValue("gstSlab", parseInt(innerProps.data.gstSlab) as 5 | 18);
       setValue(
         "unit",
-        innerProps.data.unit as "pcs" | "boxes" | "pipes" | "rolls"
+        innerProps.data.unit as "pcs" | "boxes" | "pipes" | "rolls",
       );
       setUnitValue(innerProps.data.unit);
-      setValue("price", parseInt(innerProps.data.price));
+      setValue("price", Number(innerProps.data.price));
       setValue(
         "discountPercentage",
-        parseInt(innerProps.data.discountPercentage)
+        parseInt(innerProps.data.discountPercentage),
       );
       setValue("categoryId", innerProps.data.categoryId);
       setValue(
         "quantity",
         innerProps.data.currentStock
           ? Number(innerProps.data.currentStock)
-          : undefined
+          : undefined,
       );
       setCategoryValue(innerProps.data.categoryId);
 
@@ -511,7 +513,7 @@ const EditProductModalContent = ({
                 value as "pcs" | "boxes" | "pipes" | "rolls" | "kgs",
                 {
                   shouldValidate: true,
-                }
+                },
               );
               // Auto-disable subunit if unit doesn't support it
               if (!["boxes", "pipes", "rolls", "kgs"].includes(value)) {
@@ -569,7 +571,7 @@ const EditProductModalContent = ({
                         value as "pcs" | "feets" | "mtrs" | "grams",
                         {
                           shouldValidate: true,
-                        }
+                        },
                       );
                     }
                   }}
@@ -595,8 +597,8 @@ const EditProductModalContent = ({
                     subUnitValue?.conversionRate
                       ? subUnitValue?.conversionRate
                       : isKgsSubUnit
-                      ? "1000"
-                      : "?"
+                        ? "1000"
+                        : "?"
                   } ${
                     subUnitValue?.unit || getAvailableSubUnits(unit)[0]?.label
                   }`}

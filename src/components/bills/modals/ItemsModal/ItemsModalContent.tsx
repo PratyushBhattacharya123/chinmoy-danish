@@ -20,7 +20,7 @@ const ItemsModalContent = ({
     if (!item.productDetails) return "";
 
     // If billing in subunit and product supports subunits, show subunit
-    if (item.productDetails.hasSubUnit && item.productDetails.subUnit) {
+    if (item.isSubUnit && item.productDetails.subUnit) {
       return item.productDetails.subUnit.unit;
     }
 
@@ -47,7 +47,7 @@ const ItemsModalContent = ({
     if (!item.productDetails) return 0;
 
     // If billing in subunit, divide price by conversion rate
-    if (item.productDetails.hasSubUnit && item.productDetails.subUnit) {
+    if (item.isSubUnit && item.productDetails.subUnit) {
       return (
         item.productDetails.price / item.productDetails.subUnit.conversionRate
       );
@@ -161,8 +161,7 @@ const ItemsModalContent = ({
                 const unitDisplay = getUnitDisplay(item);
                 const capitalizedUnit = capitalizeUnit(unitDisplay);
                 const isSubUnit =
-                  item.productDetails?.hasSubUnit &&
-                  item.productDetails?.subUnit;
+                  item.isSubUnit && item.productDetails?.subUnit;
 
                 return (
                   <div key={index}>
