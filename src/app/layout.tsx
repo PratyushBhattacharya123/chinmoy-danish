@@ -7,6 +7,7 @@ import ReactQueryProvider from "../../providers/ReactQueryProvider";
 import MantinesProvider from "../../providers/MantinesProvider";
 import { Toaster } from "react-hot-toast";
 import AuthProvider from "../../providers/AuthProvider";
+import { redirect } from "next/navigation";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

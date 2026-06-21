@@ -14,6 +14,8 @@ export function OperatorProtected({ children }: OperatorProtectedProps) {
   if (status !== "loading" && sessionData) {
     const isOperator = sessionData.user.userType === "OPERATOR";
     const isAdmin = sessionData.user.userType === "ADMIN";
-    return isOperator || isAdmin ? children : redirect("/unauthorized");
+    return isOperator || isAdmin
+      ? redirect("/unauthorized")
+      : redirect("/unauthorized");
   }
 }
